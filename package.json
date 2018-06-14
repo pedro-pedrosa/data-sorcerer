@@ -1,0 +1,26 @@
+{
+  "name": "data-sorcerer",
+  "version": "0.0.1",
+  "description": "Query any data source using a common, fluent API",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedro-pedrosa/data-sorcerer.git"
+  },
+  "keywords": [
+    "data-source",
+    "fluent-api"
+  ],
+  "author": "Pedro Pedrosa",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pedro-pedrosa/data-sorcerer/issues"
+  },
+  "homepage": "https://github.com/pedro-pedrosa/data-sorcerer#readme",
+  "dependencies": {
+    "ts-expressions": "0.0.2"
+  }
+}
