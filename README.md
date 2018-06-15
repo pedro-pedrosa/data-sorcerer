@@ -86,4 +86,4 @@ const outOfStock = await products
 ```
 
 ## Expression trees
-The TypeScript expressions in these queries have to be converted to expression trees before they can be analyzed. For that we use [ts-expressions](https://github.com/pedro-pedrosa/ts-expressions). If you are making use of TypeScript expressions, you must compile `data-sourcerer` using the `ts-expressions` transformer. For more details please visit the `ts-expressions` page.
+The TypeScript expressions in these queries have to be converted to expression trees before they can be analyzed. For that we use [ts-expressions](https://github.com/pedro-pedrosa/ts-expressions). If you are making use of TypeScript expressions, you must compile `data-sorcerer` using the `ts-expressions` transformer. For more details please visit the `ts-expressions` page.

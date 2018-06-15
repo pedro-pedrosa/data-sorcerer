@@ -6,7 +6,7 @@ export class InMemoryProvider<T = any> implements IDataSourceProvider {
         this.data = data;
     }
     data: T[];
-    execute<K>(query: op.QueryOperation) {
+    execute(query: op.QueryOperation) {
         return Promise.resolve(this.visit(query));
     }
     private visit(query: op.QueryOperation): any[] {
