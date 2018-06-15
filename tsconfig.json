@@ -5,6 +5,7 @@
         "moduleResolution": "node",
         "importHelpers": true,
         "alwaysStrict": true,
+        "strictNullChecks": true,
         "noImplicitAny": true,
         "noImplicitThis": true,
         "removeComments": true,

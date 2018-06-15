@@ -69,7 +69,7 @@ const discountOrders = orders
 ```
 
 ## Lazy evaluation
-All queries are lazy-evaluated meaning that the query is only sent for execution when the data source is converted to an array using `toArray()` or when the result of the operation is a value using the `await` keyword or `.then()`.
+All queries are lazy-evaluated meaning that the query is only sent for execution when the data source is converted to an array using `toArray()`, when the result of the operation is a value, or when the data source is iterated.
 
 ```ts
 const londonEmployees = employees
