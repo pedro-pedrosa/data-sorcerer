@@ -210,6 +210,7 @@ function convertVisit(scope: Map<string, schema.SchemaNode>, expression: expr.Ex
         case expr.ExpressionKind.arrayLiteral:
             return convertArrayLiteral(scope, expression);
         case expr.ExpressionKind.propertyAccess:
+            return convertPropertyAccess(scope, expression);
         case expr.ExpressionKind.binary:
         case expr.ExpressionKind.lambda:
         case expr.ExpressionKind.call:
@@ -286,5 +287,24 @@ function convertArrayLiteral(scope: Map<string, schema.SchemaNode>, expression: 
             elements: elementsVisitResult.map(r => r.operation),
         } as CollectionLiteralOperation,
         type: type || { kind: schema.SchemaNodeKind.complex, fields:[], key:[] } as schema.SchemaNodeComplex
+    };
+}
+function convertPropertyAccess(scope: Map<string, schema.SchemaNode>, expression: expr.PropertyAccessExpression) {
+    const target = convertVisit(scope, expression.expression);
+    if (target.type.kind != schema.SchemaNodeKind.complex) {
+        //TODO: handle other types like text.length
+        throw new Error();
+    }
+    const field = target.type.fields.find(f => f.name == expression.name);
+    if (!field) {
+        throw new Error();
+    }
+    return {
+        operation: {
+            operation: QueryOperationNodeType.fieldReference,
+            element: target.operation,
+            fieldName: expression.name,
+        } as FieldReferenceOperation,
+        type: field.type,
     };
 }
