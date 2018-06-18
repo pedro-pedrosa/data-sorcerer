@@ -1,6 +1,6 @@
-import * as expr from '../../ts-expressions';
+import * as expr from 'ts-expressions';
 import * as op from './operation';
-import { ExpressionKind } from 'ts-expressions/lib/expressions/ExpressionKind';
+import { SchemaNodeComplex, SchemaNode } from './schema';
 
 export interface IDataSource<T> {
     filter(predicate: expr.Expression<(element: T) => boolean>): IDataSource<T>;
@@ -13,7 +13,8 @@ export interface IDataSource<T> {
 }
 
 export interface IDataSourceProvider {
-    execute: <T>(query: op.QueryOperation) => Promise<T[]>;
+    schema: SchemaNodeComplex;
+    execute<T>(query: op.QueryOperation): Promise<T[]>;
 }
 
 export class DataSourceBase<T> implements IDataSource<T> {
@@ -60,17 +61,16 @@ export class DataSourceBase<T> implements IDataSource<T> {
                 body: bodyOperation!
             }
         }
-        else if (expr.isLambdaExpression(bodyOrParameterName) && bodyOrParameterName.parameters.length == 1) {
+        else if (expr.isLambdaExpression<K>(bodyOrParameterName) && bodyOrParameterName.root.parameters.length == 1) {
+            const scope = new Map<string, SchemaNode>();
+            scope.set(bodyOrParameterName.root.parameters[0].name, this.provider.schema);
             return {
-                parameterName: bodyOrParameterName.parameters[0].name,
-                body: this.convertExpressionToQueryOperation(bodyOrParameterName.body)
+                parameterName: bodyOrParameterName.root.parameters[0].name,
+                body: op.convertExpressionToQueryOperation(scope, bodyOrParameterName.root.body)
             }
         }
         else {
             throw new Error('Predicate must be a lambda expression or a query operation');
         }
-    }
-    private convertExpressionToQueryOperation(e: expr.ExpressionBase): op.QueryOperation {
-        
     }
 }

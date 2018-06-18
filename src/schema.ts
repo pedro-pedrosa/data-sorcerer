@@ -1,13 +1,5 @@
-
-
-export interface SchemaType {
-    
-    kind: SchemaTypeKind;
-}
-
-
-export enum SchemaTypeKind {
-	
+export type SchemaNode = SchemaNodeBoolean | SchemaNodeChoice | SchemaNodeCollection | SchemaNodeComplex | SchemaNodeDateTime | SchemaNodeLookupBelongs | SchemaNodeLookupContains | SchemaNodeIntegerNumber | SchemaNodeDecimal | SchemaNodeCurrency | SchemaNodeText;
+export enum SchemaNodeKind {
 	text,
 	choice,
 	boolean,
@@ -16,93 +8,88 @@ export enum SchemaTypeKind {
 	decimal,
 	currency,
 	complex,
-	collection
-}
-export interface SchemaTypeBoolean extends SchemaType {
-    
-    kind: SchemaTypeKind;
-    format: SchemaTypeBooleanFormat;
+    collection,
+    lookupBelongs,
+    lookupContains,
 }
 
-
-export enum SchemaTypeBooleanFormat {
-	
+export interface SchemaNodeBoolean {
+    kind: SchemaNodeKind.boolean;
+    format: SchemaNodeBooleanFormat;
+}
+export enum SchemaNodeBooleanFormat {
 	checkbox,
 	yesNo
 }
-export interface SchemaTypeChoice extends SchemaType {
-    
-    kind: SchemaTypeKind;
+
+export interface SchemaNodeChoice {
+    kind: SchemaNodeKind.choice;
     choices: string[];
     multi: boolean;
 }
 
-export interface SchemaTypeCollection extends SchemaType {
-    
-    kind: SchemaTypeKind;
-    elementType: SchemaType;
+export interface SchemaNodeCollection {
+    kind: SchemaNodeKind.collection;
+    elementType: SchemaNode;
 }
 
-export interface SchemaTypeComplex extends SchemaType {
-    
-    kind: SchemaTypeKind;
-    fields: SchemaTypeComplexField[];
+export interface SchemaNodeComplex {
+    kind: SchemaNodeKind.complex;
+    fields: SchemaNodeComplexField[];
+    key: string[];
 }
-
-export interface SchemaTypeComplexField {
-    
-    type: SchemaType;
+export interface SchemaNodeComplexField {
+    type: SchemaNode;
     name: string;
     title: string;
     description: string;
     isNullable: boolean;
 }
 
-export interface SchemaTypeCurrency extends SchemaTypeDecimalBase {
-    
-    kind: SchemaTypeKind;
-    lcid: number;
-}
-
-export interface SchemaTypeDateTime extends SchemaType {
-    
-    kind: SchemaTypeKind;
-    format: SchemaTypeDateTimeFormat;
+export interface SchemaNodeDateTime {
+    kind: SchemaNodeKind.dateTime;
+    format: SchemaNodeDateTimeFormat;
     maxValue: Date;
     minValue: Date;
 }
-
-
-export enum SchemaTypeDateTimeFormat {
-	
+export enum SchemaNodeDateTimeFormat {
 	dateTime,
 	date,
 	time
 }
-export interface SchemaTypeDecimal extends SchemaTypeDecimalBase {
-    
-    kind: SchemaTypeKind;
+
+export interface SchemaNodeLookup {
+    lookupType: SchemaNodeComplex;
+}
+export interface SchemaNodeLookupBelongs extends SchemaNodeLookup {
+    kind: SchemaNodeKind.lookupBelongs;
+    foreignFieldNames: string[];
+}
+export interface SchemaNodeLookupContains extends SchemaNodeLookup {
+    kind: SchemaNodeKind.lookupContains;
+    lookupForeignFieldNames: string[];
+}
+
+export interface SchemaNodeNumber {
+    maxValue: number;
+    minValue: number;
+    lcid: number;
+}
+export interface SchemaNodeIntegerNumber extends SchemaNodeNumber{
+    kind: SchemaNodeKind.integer;
+}
+export interface SchemaNodeDecimalBase extends SchemaNodeNumber {
+}
+export interface SchemaNodeDecimal extends SchemaNodeDecimalBase {
+    kind: SchemaNodeKind.decimal;
     showAsPercent: boolean;
 }
-
-export interface SchemaTypeDecimalBase extends SchemaTypeNumber<number> {
-    
+export interface SchemaNodeCurrency extends SchemaNodeDecimalBase {
+    kind: SchemaNodeKind.currency;
 }
 
-export interface SchemaTypeInteger extends SchemaTypeNumber<number> {
-    
-    kind: SchemaTypeKind;
-}
-
-export interface SchemaTypeNumber<T> extends SchemaType {
-    
-    maxValue: T;
-    minValue: T;
-}
-
-export interface SchemaTypeText extends SchemaType {
-    
+export interface SchemaNodeText {
+    kind: SchemaNodeKind.text;
     maxLength: number;
     isUnicode: boolean;
-    kind: SchemaTypeKind;
 }

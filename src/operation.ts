@@ -1,3 +1,6 @@
+import * as expr from 'ts-expressions';
+import * as schema from './schema';
+
 export type QueryOperation =
     //Binary
     AddOperation | AndOperation | DivideOperation | EqualOperation | GreaterOperation | 
@@ -184,4 +187,56 @@ export interface IfOperation {
     condition: QueryOperation;
     trueOperation: QueryOperation;
     falseOperation: QueryOperation;
+}
+
+export function convertExpressionToQueryOperation(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode): QueryOperation {
+    const { operation } = convertVisit(scope, expression);
+    return operation;
+}
+
+function convertVisit(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode): { operation: QueryOperation, type: schema.SchemaNode } {
+    switch (expression.kind) {
+        case expr.ExpressionKind.parameter:
+            return convertParameter(scope, expression);
+        case expr.ExpressionKind.constant:
+            return convertConstant(scope, expression);
+    }
+    throw new Error();
+}
+
+function convertParameter(scope: Map<string, schema.SchemaNode>, expression: expr.ParameterExpression) {
+    if (!scope.has(expression.name)) {
+        throw new Error();
+    }
+    return {
+        operation: {
+            operation: QueryOperationNodeType.parameter,
+            name: expression.name,
+        } as ParameterOperation,
+        type: scope.get(expression.name)!,
+    };
+}
+function convertConstant(scope: Map<string, schema.SchemaNode>, expression: expr.ConstantExpression) {
+    let type: schema.SchemaNode;
+    switch (typeof expression.value) {
+        case 'boolean':
+            type = { kind: schema.SchemaNodeKind.boolean } as schema.SchemaNodeBoolean;
+            break;
+        case 'number':
+            type = { kind: schema.SchemaNodeKind.decimal } as schema.SchemaNodeDecimal;
+            break;
+        case 'string':
+            type = { kind: schema.SchemaNodeKind.text } as schema.SchemaNodeText;
+            break;
+        default:
+            throw new Error();
+    }
+
+    return {
+        operation: {
+            operation: QueryOperationNodeType.literal,
+            value: expression.value
+        } as LiteralOperation,
+        type
+    }
 }

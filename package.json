@@ -21,6 +21,6 @@
   },
   "homepage": "https://github.com/pedro-pedrosa/data-sorcerer#readme",
   "dependencies": {
-    "ts-expressions": "0.0.2"
+    "ts-expressions": "0.0.3"
   }
 }
