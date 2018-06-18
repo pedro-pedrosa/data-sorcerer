@@ -9,7 +9,7 @@ export type QueryOperation =
     //Unary
     NegateOperation | NotOperation |
     //Collection
-    CountOperation | FilterOperation | MapOperation | SortOperation | TakePageOperation |
+    CollectionLiteralOperation | CountOperation | FilterOperation | MapOperation | SortOperation | TakePageOperation |
     //String
     ContainsOperation | EndsWithOperation | StartsWithOperation | ToLowerCaseOperation | 
     ToUpperCaseOperation |
@@ -27,7 +27,8 @@ export enum QueryOperationNodeType {
 	map,
 	sort,
 	takePage,
-	elementLiteral,
+    elementLiteral,
+    collectionLiteral,
 	fieldReference,
 	add,
 	subtract,
@@ -102,6 +103,10 @@ export interface NotOperation extends UnaryOperation {
     operation: QueryOperationNodeType.not;
 }
 
+export interface CollectionLiteralOperation {
+    operation: QueryOperationNodeType.collectionLiteral;
+    elements: QueryOperation[];
+}
 export interface CollectionOperation {
     source: QueryOperation;
 }
@@ -199,7 +204,15 @@ function convertVisit(scope: Map<string, schema.SchemaNode>, expression: expr.Ex
         case expr.ExpressionKind.parameter:
             return convertParameter(scope, expression);
         case expr.ExpressionKind.constant:
-            return convertConstant(scope, expression);
+            return convertConstant(expression);
+        case expr.ExpressionKind.objectLiteral:
+            return convertObjectLiteral(scope, expression);
+        case expr.ExpressionKind.arrayLiteral:
+            return convertArrayLiteral(scope, expression);
+        case expr.ExpressionKind.propertyAccess:
+        case expr.ExpressionKind.binary:
+        case expr.ExpressionKind.lambda:
+        case expr.ExpressionKind.call:
     }
     throw new Error();
 }
@@ -216,7 +229,7 @@ function convertParameter(scope: Map<string, schema.SchemaNode>, expression: exp
         type: scope.get(expression.name)!,
     };
 }
-function convertConstant(scope: Map<string, schema.SchemaNode>, expression: expr.ConstantExpression) {
+function convertConstant(expression: expr.ConstantExpression) {
     let type: schema.SchemaNode;
     switch (typeof expression.value) {
         case 'boolean':
@@ -239,4 +252,39 @@ function convertConstant(scope: Map<string, schema.SchemaNode>, expression: expr
         } as LiteralOperation,
         type
     }
+}
+function convertObjectLiteral(scope: Map<string, schema.SchemaNode>, expression: expr.ObjectLiteralExpression) {
+    const propertiesVisitResult = expression.properties.map(p => ({ name: p.name, ...convertVisit(scope, p.expression) }));
+    return {
+        operation: {
+            operation: QueryOperationNodeType.elementLiteral,
+            fields: propertiesVisitResult.map(p => ({
+                name: p.name,
+                value: p.operation
+            }) as ElementLiteralOperationField),
+        } as ElementLiteralOperation,
+        type: {
+            kind: schema.SchemaNodeKind.complex,
+            fields: propertiesVisitResult.map(r => ({
+                name: r.name,
+                title: r.name,
+                type: r.type
+            }) as schema.SchemaNodeComplexField),
+            key: [],
+        } as schema.SchemaNodeComplex,
+    };
+}
+function convertArrayLiteral(scope: Map<string, schema.SchemaNode>, expression: expr.ArrayLiteralExpression) {
+    const elementsVisitResult = expression.elements.map(e => convertVisit(scope, e));
+    const type = elementsVisitResult.length > 0 ? elementsVisitResult[0].type : undefined;
+    if (elementsVisitResult.find(e => !schema.nodesEqual(type!, e.type))) {
+        throw new Error();
+    }
+    return {
+        operation: {
+            operation: QueryOperationNodeType.collectionLiteral,
+            elements: elementsVisitResult.map(r => r.operation),
+        } as CollectionLiteralOperation,
+        type: type || { kind: schema.SchemaNodeKind.complex, fields:[], key:[] } as schema.SchemaNodeComplex
+    };
 }

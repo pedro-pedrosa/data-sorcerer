@@ -93,3 +93,8 @@ export interface SchemaNodeText {
     maxLength: number;
     isUnicode: boolean;
 }
+
+export function nodesEqual(n1: SchemaNode, n2: SchemaNode) {
+    //TODO: improve this please.
+    return n1.kind == n2.kind;
+}
