@@ -2,12 +2,7 @@ import * as expr from 'ts-expressions';
 import * as schema from './schema';
 
 export type QueryOperation =
-    //Binary
-    AddOperation | AndOperation | DivideOperation | EqualOperation | GreaterOperation | 
-    GreaterOrEqualOperation | LessOperation | LessOrEqualOperation | MultiplyOperation | 
-    NotEqualOperation | OrOperation | SubtractOperation |
-    //Unary
-    NegateOperation | NotOperation |
+    BinaryOperation | UnaryOperation |
     //Collection
     CollectionLiteralOperation | CountOperation | FilterOperation | MapOperation | SortOperation | TakePageOperation |
     //String
@@ -17,6 +12,13 @@ export type QueryOperation =
     DataSourceReferenceOperation | ElementLiteralOperation | FieldReferenceOperation | 
     //Misc
     LiteralOperation | ParameterOperation | IfOperation;
+
+export type BinaryOperation = 
+    AddOperation | AndOperation | DivideOperation | EqualOperation | GreaterOperation | 
+    GreaterOrEqualOperation | LessOperation | LessOrEqualOperation | MultiplyOperation | 
+    NotEqualOperation | OrOperation | SubtractOperation;
+
+export type UnaryOperation = NegateOperation | NotOperation;
 
 export enum QueryOperationNodeType {
 	parameter,
@@ -52,54 +54,54 @@ export enum QueryOperationNodeType {
 	toLowerCase
 }
 
-export interface BinaryOperation {
+export interface BinaryOperationBase {
     leftOperand: QueryOperation;
     rightOperand: QueryOperation;
 }
-export interface AddOperation extends BinaryOperation {
+export interface AddOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.add;
 }
-export interface AndOperation extends BinaryOperation {
+export interface AndOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.and;
 }
-export interface DivideOperation extends BinaryOperation {
+export interface DivideOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.divide;
 }
-export interface EqualOperation extends BinaryOperation {
+export interface EqualOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.equal;
 }
-export interface GreaterOperation extends BinaryOperation {
+export interface GreaterOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.greater;
 }
-export interface GreaterOrEqualOperation extends BinaryOperation {
+export interface GreaterOrEqualOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.greaterOrEqual;
 }
-export interface LessOperation extends BinaryOperation {
+export interface LessOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.less;
 }
-export interface LessOrEqualOperation extends BinaryOperation {
+export interface LessOrEqualOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.lessOrEqual;
 }
-export interface MultiplyOperation extends BinaryOperation {
+export interface MultiplyOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.multiply;
 }
-export interface NotEqualOperation extends BinaryOperation {
+export interface NotEqualOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.notEqual;
 }
-export interface OrOperation extends BinaryOperation {
+export interface OrOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.or;
 }
-export interface SubtractOperation extends BinaryOperation {
+export interface SubtractOperation extends BinaryOperationBase {
     operation: QueryOperationNodeType.subtract;
 }
 
-export interface UnaryOperation {
+export interface UnaryOperationBase {
     operand: QueryOperation;
 }
-export interface NegateOperation extends UnaryOperation {
+export interface NegateOperation extends UnaryOperationBase {
     operation: QueryOperationNodeType.negate;
 }
-export interface NotOperation extends UnaryOperation {
+export interface NotOperation extends UnaryOperationBase {
     operation: QueryOperationNodeType.not;
 }
 
@@ -212,8 +214,9 @@ function convertVisit(scope: Map<string, schema.SchemaNode>, expression: expr.Ex
         case expr.ExpressionKind.propertyAccess:
             return convertPropertyAccess(scope, expression);
         case expr.ExpressionKind.binary:
-        case expr.ExpressionKind.lambda:
+            return convertBinary(scope, expression);
         case expr.ExpressionKind.call:
+            return convertCall(scope, expression);
     }
     throw new Error();
 }
@@ -307,4 +310,189 @@ function convertPropertyAccess(scope: Map<string, schema.SchemaNode>, expression
         } as FieldReferenceOperation,
         type: field.type,
     };
+}
+function convertBinary(scope: Map<string, schema.SchemaNode>, expression: expr.BinaryExpression) {
+    const left = convertVisit(scope, expression.left);
+    const right = convertVisit(scope, expression.right);
+    let operationKind;
+    switch (expression.operator) {
+        case expr.BinaryOperator.equals:
+        case expr.BinaryOperator.strictEquals:
+            operationKind = QueryOperationNodeType.equal;
+            break;
+        case expr.BinaryOperator.notEquals:
+        case expr.BinaryOperator.notStrictEquals:
+            operationKind = QueryOperationNodeType.notEqual;
+            break;
+        default:
+            throw new Error();
+    }
+    return {
+        operation: {
+            operation: operationKind,
+            leftOperand: left.operation,
+            rightOperand: right.operation,
+        } as BinaryOperation,
+        type: getSchemaTypeForBinaryOperation(operationKind, left.type, right.type),
+    };
+}
+function getSchemaTypeForBinaryOperation(operationKind: QueryOperationNodeType, leftOperandSchema: schema.SchemaNode, rightOperandSchema: schema.SchemaNode): schema.SchemaNode
+{
+    switch (operationKind)
+    {
+        case QueryOperationNodeType.add:
+        case QueryOperationNodeType.subtract:
+            switch (leftOperandSchema.kind)
+            {
+                case schema.SchemaNodeKind.integer:
+                    switch (rightOperandSchema.kind)
+                    {
+                        case schema.SchemaNodeKind.integer:
+                            return { kind: schema.SchemaNodeKind.integer };
+                        case schema.SchemaNodeKind.decimal:
+                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: rightOperandSchema.showAsPercent };
+                        case schema.SchemaNodeKind.currency:
+                            return { kind: schema.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
+                        default:
+                            throw new Error();
+                    }
+                case schema.SchemaNodeKind.decimal:
+                    switch (rightOperandSchema.kind)
+                    {
+                        case schema.SchemaNodeKind.integer:
+                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent };
+                        case schema.SchemaNodeKind.decimal:
+                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent || rightOperandSchema.showAsPercent };
+                        case schema.SchemaNodeKind.currency:
+                            return { kind: schema.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
+                        default:
+                            throw new Error();
+                    }
+                case schema.SchemaNodeKind.currency:
+                    switch (rightOperandSchema.kind)
+                    {
+                        case schema.SchemaNodeKind.integer:
+                        case schema.SchemaNodeKind.decimal:
+                            return { kind: schema.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
+                        case schema.SchemaNodeKind.currency:
+                            if (leftOperandSchema.lcid != rightOperandSchema.lcid)
+                            {
+                                throw new Error();
+                            }
+                            return { kind: schema.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
+                        default:
+                            throw new Error();
+                    }
+                default:
+                    throw new Error();
+            } 
+        case QueryOperationNodeType.divide:
+            switch (leftOperandSchema.kind)
+            {
+                case schema.SchemaNodeKind.integer:
+                    switch (rightOperandSchema.kind)
+                    {
+                        case schema.SchemaNodeKind.integer:
+                            return { kind: schema.SchemaNodeKind.integer };
+                        case schema.SchemaNodeKind.decimal:
+                        case schema.SchemaNodeKind.currency:
+                            return { kind: schema.SchemaNodeKind.decimal };
+                        default:
+                            throw new Error();
+                    }
+                case schema.SchemaNodeKind.decimal:
+                    switch (rightOperandSchema.kind)
+                    {
+                        case schema.SchemaNodeKind.integer:
+                        case schema.SchemaNodeKind.decimal:
+                        case schema.SchemaNodeKind.currency:
+                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent };
+                        default:
+                            throw new Error();
+                    }
+                case schema.SchemaNodeKind.currency:
+                    switch (rightOperandSchema.kind)
+                    {
+                        case schema.SchemaNodeKind.integer:
+                        case schema.SchemaNodeKind.decimal:
+                            return { kind: schema.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
+                        case schema.SchemaNodeKind.currency:
+                            return { kind: schema.SchemaNodeKind.decimal };
+                        default:
+                            throw new Error();
+                    }
+                default:
+                    throw new Error();
+            }
+        case QueryOperationNodeType.multiply:
+            switch (leftOperandSchema.kind)
+            {
+                case schema.SchemaNodeKind.integer:
+                    switch (rightOperandSchema.kind)
+                    {
+                        case schema.SchemaNodeKind.integer:
+                            return { kind: schema.SchemaNodeKind.integer };
+                        case schema.SchemaNodeKind.decimal:
+                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: rightOperandSchema.showAsPercent };
+                        case schema.SchemaNodeKind.currency:
+                            return { kind: schema.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
+                        default:
+                            throw new Error();
+                    }
+                case schema.SchemaNodeKind.decimal:
+                    switch (rightOperandSchema.kind)
+                    {
+                        case schema.SchemaNodeKind.integer:
+                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent };
+                        case schema.SchemaNodeKind.decimal:
+                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent || rightOperandSchema.showAsPercent };
+                        case schema.SchemaNodeKind.currency:
+                            return { kind: schema.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
+                        default:
+                            throw new Error();
+                    }
+                case schema.SchemaNodeKind.currency:
+                    switch (rightOperandSchema.kind)
+                    {
+                        case schema.SchemaNodeKind.integer:
+                        case schema.SchemaNodeKind.decimal:
+                            return { kind: schema.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
+                        default:
+                            throw new Error();
+                    }
+                default:
+                    throw new Error();
+            }
+        case QueryOperationNodeType.equal:
+        case QueryOperationNodeType.notEqual:
+            return { kind: schema.SchemaNodeKind.boolean };
+        case QueryOperationNodeType.greater:
+        case QueryOperationNodeType.greaterOrEqual:
+        case QueryOperationNodeType.less:
+        case QueryOperationNodeType.lessOrEqual:
+            if ((leftOperandSchema.kind == schema.SchemaNodeKind.integer || leftOperandSchema.kind == schema.SchemaNodeKind.decimal || leftOperandSchema.kind == schema.SchemaNodeKind.currency) &&
+                (rightOperandSchema.kind == schema.SchemaNodeKind.integer || rightOperandSchema.kind == schema.SchemaNodeKind.decimal || rightOperandSchema.kind == schema.SchemaNodeKind.currency))
+            {
+                return { kind: schema.SchemaNodeKind.boolean };
+            }
+            else
+            {
+                throw new Error();
+            }
+        case QueryOperationNodeType.and:
+        case QueryOperationNodeType.or:
+            if (leftOperandSchema.kind == schema.SchemaNodeKind.boolean && rightOperandSchema.kind == schema.SchemaNodeKind.boolean)
+            {
+                return { kind: schema.SchemaNodeKind.boolean, format: leftOperandSchema.format == schema.SchemaNodeBooleanFormat.yesNo && rightOperandSchema.format == schema.SchemaNodeBooleanFormat.yesNo ? schema.SchemaNodeBooleanFormat.yesNo : schema.SchemaNodeBooleanFormat.checkbox };
+            }
+            else
+            {
+                throw new Error();
+            }
+        default:
+            throw new Error();
+    }
+}
+function convertCall(scope: Map<string, schema.SchemaNode>, expression: expr.CallExpression) {
+
 }

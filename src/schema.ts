@@ -15,7 +15,7 @@ export enum SchemaNodeKind {
 
 export interface SchemaNodeBoolean {
     kind: SchemaNodeKind.boolean;
-    format: SchemaNodeBooleanFormat;
+    format?: SchemaNodeBooleanFormat;
 }
 export enum SchemaNodeBooleanFormat {
 	checkbox,
@@ -25,7 +25,7 @@ export enum SchemaNodeBooleanFormat {
 export interface SchemaNodeChoice {
     kind: SchemaNodeKind.choice;
     choices: string[];
-    multi: boolean;
+    multi?: boolean;
 }
 
 export interface SchemaNodeCollection {
@@ -42,15 +42,15 @@ export interface SchemaNodeComplexField {
     type: SchemaNode;
     name: string;
     title: string;
-    description: string;
+    description?: string;
     isNullable: boolean;
 }
 
 export interface SchemaNodeDateTime {
     kind: SchemaNodeKind.dateTime;
-    format: SchemaNodeDateTimeFormat;
-    maxValue: Date;
-    minValue: Date;
+    format?: SchemaNodeDateTimeFormat;
+    maxValue?: Date;
+    minValue?: Date;
 }
 export enum SchemaNodeDateTimeFormat {
 	dateTime,
@@ -71,9 +71,9 @@ export interface SchemaNodeLookupContains extends SchemaNodeLookup {
 }
 
 export interface SchemaNodeNumber {
-    maxValue: number;
-    minValue: number;
-    lcid: number;
+    maxValue?: number;
+    minValue?: number;
+    lcid?: number;
 }
 export interface SchemaNodeIntegerNumber extends SchemaNodeNumber{
     kind: SchemaNodeKind.integer;
@@ -82,16 +82,16 @@ export interface SchemaNodeDecimalBase extends SchemaNodeNumber {
 }
 export interface SchemaNodeDecimal extends SchemaNodeDecimalBase {
     kind: SchemaNodeKind.decimal;
-    showAsPercent: boolean;
+    showAsPercent?: boolean;
 }
 export interface SchemaNodeCurrency extends SchemaNodeDecimalBase {
     kind: SchemaNodeKind.currency;
+    lcid: number;
 }
 
 export interface SchemaNodeText {
     kind: SchemaNodeKind.text;
-    maxLength: number;
-    isUnicode: boolean;
+    maxLength?: number;
 }
 
 export function nodesEqual(n1: SchemaNode, n2: SchemaNode) {
