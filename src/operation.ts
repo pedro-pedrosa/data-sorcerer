@@ -505,32 +505,58 @@ function convertCall(scope: Map<string, schema.SchemaNode>, expression: expr.Cal
         case schema.SchemaNodeKind.collection:
             switch (expression.callee.name) {
                 case 'filter':
-                    if (expression.arguments.length != 1) {
-                        throw new Error();
-                    }
-                    const lambdaExpression = expression.arguments[0];
-                    if (lambdaExpression.kind != expr.ExpressionKind.lambda || lambdaExpression.parameters.length != 1) {
-                        throw new Error();
-                    }
-                    const newScope = new Map(scope);
-                    newScope.set(lambdaExpression.parameters[0].name, calleeTargetResult.type.elementType);
-                    const { operation: predicate } = convertVisit(newScope, lambdaExpression.body);
-                    return {
-                        operation: {
-                            operation: QueryOperationNodeType.filter,
-                            source: calleeTargetResult.operation,
-                            parameterName: lambdaExpression.parameters[0].name,
-                            predicate,
-                        },
-                        type: {
-                            kind: schema.SchemaNodeKind.collection,
-                            elementType: calleeTargetResult.type.elementType,
-                        }
-                    }
+                    return convertCollectionFilterCall(scope, calleeTargetResult.operation, calleeTargetResult.type.elementType, expression.arguments);
+                case 'map':
+                    return convertCollectionMapCall(scope, calleeTargetResult.operation, calleeTargetResult.type.elementType, expression.arguments);
                 default:
                     throw new Error();
             }
         default:
         throw new Error();
     }
+}
+function convertCollectionFilterCall(scope: Map<string, schema.SchemaNode>, source: QueryOperation, sourceElementType: schema.SchemaNode, args: expr.ExpressionNode[]): ConvertExpressionToQueryOperationResult {
+    if (args.length != 1) {
+        throw new Error();
+    }
+    const { parameterName, operation: predicate } = tryConvertCollectionCallLambda(scope, args[0], sourceElementType)
+    return {
+        operation: {
+            operation: QueryOperationNodeType.filter,
+            source,
+            parameterName,
+            predicate,
+        },
+        type: {
+            kind: schema.SchemaNodeKind.collection,
+            elementType: sourceElementType,
+        }
+    };
+}
+function convertCollectionMapCall(scope: Map<string, schema.SchemaNode>, source: QueryOperation, sourceElementType: schema.SchemaNode, args: expr.ExpressionNode[]): ConvertExpressionToQueryOperationResult {
+    if (args.length != 1) {
+        throw new Error();
+    }
+    const { parameterName, operation: projection, type: elementType } = tryConvertCollectionCallLambda(scope, args[0], sourceElementType);
+    return {
+        operation: {
+            operation: QueryOperationNodeType.map,
+            source,
+            parameterName: parameterName,
+            projection
+        },
+        type: {
+            kind: schema.SchemaNodeKind.collection,
+            elementType,
+        }
+    };
+}
+function tryConvertCollectionCallLambda(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode, collectionElementType: schema.SchemaNode) {
+    if (expression.kind != expr.ExpressionKind.lambda || expression.parameters.length != 1) {
+        throw new Error();
+    }
+    const parameterName = expression.parameters[0].name;
+    const newScope = new Map(scope);
+    newScope.set(expression.parameters[0].name, collectionElementType);
+    return { parameterName, ...convertVisit(newScope, expression.body) };
 }
