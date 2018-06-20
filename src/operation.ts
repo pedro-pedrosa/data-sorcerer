@@ -196,12 +196,15 @@ export interface IfOperation {
     falseOperation: QueryOperation;
 }
 
-export function convertExpressionToQueryOperation(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode): QueryOperation {
-    const { operation } = convertVisit(scope, expression);
-    return operation;
+export type ConvertExpressionToQueryOperationResult = {
+    operation: QueryOperation, 
+    type: schema.SchemaNode
+}
+export function convertExpressionToQueryOperation(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode): ConvertExpressionToQueryOperationResult {
+    return convertVisit(scope, expression);
 }
 
-function convertVisit(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode): { operation: QueryOperation, type: schema.SchemaNode } {
+function convertVisit(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode): ConvertExpressionToQueryOperationResult {
     switch (expression.kind) {
         case expr.ExpressionKind.parameter:
             return convertParameter(scope, expression);
@@ -221,19 +224,19 @@ function convertVisit(scope: Map<string, schema.SchemaNode>, expression: expr.Ex
     throw new Error();
 }
 
-function convertParameter(scope: Map<string, schema.SchemaNode>, expression: expr.ParameterExpression) {
+function convertParameter(scope: Map<string, schema.SchemaNode>, expression: expr.ParameterExpression): ConvertExpressionToQueryOperationResult {
     if (!scope.has(expression.name)) {
         throw new Error();
     }
     return {
         operation: {
-            operation: QueryOperationNodeType.parameter,
+            operation: QueryOperationNodeType.parameter, 
             name: expression.name,
-        } as ParameterOperation,
+        },
         type: scope.get(expression.name)!,
     };
 }
-function convertConstant(expression: expr.ConstantExpression) {
+function convertConstant(expression: expr.ConstantExpression): ConvertExpressionToQueryOperationResult {
     let type: schema.SchemaNode;
     switch (typeof expression.value) {
         case 'boolean':
@@ -257,7 +260,7 @@ function convertConstant(expression: expr.ConstantExpression) {
         type
     }
 }
-function convertObjectLiteral(scope: Map<string, schema.SchemaNode>, expression: expr.ObjectLiteralExpression) {
+function convertObjectLiteral(scope: Map<string, schema.SchemaNode>, expression: expr.ObjectLiteralExpression): ConvertExpressionToQueryOperationResult {
     const propertiesVisitResult = expression.properties.map(p => ({ name: p.name, ...convertVisit(scope, p.expression) }));
     return {
         operation: {
@@ -278,7 +281,7 @@ function convertObjectLiteral(scope: Map<string, schema.SchemaNode>, expression:
         } as schema.SchemaNodeComplex,
     };
 }
-function convertArrayLiteral(scope: Map<string, schema.SchemaNode>, expression: expr.ArrayLiteralExpression) {
+function convertArrayLiteral(scope: Map<string, schema.SchemaNode>, expression: expr.ArrayLiteralExpression): ConvertExpressionToQueryOperationResult {
     const elementsVisitResult = expression.elements.map(e => convertVisit(scope, e));
     const type = elementsVisitResult.length > 0 ? elementsVisitResult[0].type : undefined;
     if (elementsVisitResult.find(e => !schema.nodesEqual(type!, e.type))) {
@@ -292,7 +295,7 @@ function convertArrayLiteral(scope: Map<string, schema.SchemaNode>, expression: 
         type: type || { kind: schema.SchemaNodeKind.complex, fields:[], key:[] } as schema.SchemaNodeComplex
     };
 }
-function convertPropertyAccess(scope: Map<string, schema.SchemaNode>, expression: expr.PropertyAccessExpression) {
+function convertPropertyAccess(scope: Map<string, schema.SchemaNode>, expression: expr.PropertyAccessExpression): ConvertExpressionToQueryOperationResult {
     const target = convertVisit(scope, expression.expression);
     if (target.type.kind != schema.SchemaNodeKind.complex) {
         //TODO: handle other types like text.length
@@ -311,7 +314,7 @@ function convertPropertyAccess(scope: Map<string, schema.SchemaNode>, expression
         type: field.type,
     };
 }
-function convertBinary(scope: Map<string, schema.SchemaNode>, expression: expr.BinaryExpression) {
+function convertBinary(scope: Map<string, schema.SchemaNode>, expression: expr.BinaryExpression): ConvertExpressionToQueryOperationResult {
     const left = convertVisit(scope, expression.left);
     const right = convertVisit(scope, expression.right);
     let operationKind;
@@ -493,6 +496,41 @@ function getSchemaTypeForBinaryOperation(operationKind: QueryOperationNodeType, 
             throw new Error();
     }
 }
-function convertCall(scope: Map<string, schema.SchemaNode>, expression: expr.CallExpression) {
-
+function convertCall(scope: Map<string, schema.SchemaNode>, expression: expr.CallExpression): ConvertExpressionToQueryOperationResult {
+    if (expression.callee.kind != expr.ExpressionKind.propertyAccess) {
+        throw new Error();
+    }
+    const calleeTargetResult = convertVisit(scope, expression.callee.expression);
+    switch (calleeTargetResult.type.kind) {
+        case schema.SchemaNodeKind.collection:
+            switch (expression.callee.name) {
+                case 'filter':
+                    if (expression.arguments.length != 1) {
+                        throw new Error();
+                    }
+                    const lambdaExpression = expression.arguments[0];
+                    if (lambdaExpression.kind != expr.ExpressionKind.lambda || lambdaExpression.parameters.length != 1) {
+                        throw new Error();
+                    }
+                    const newScope = new Map(scope);
+                    newScope.set(lambdaExpression.parameters[0].name, calleeTargetResult.type.elementType);
+                    const { operation: predicate } = convertVisit(newScope, lambdaExpression.body);
+                    return {
+                        operation: {
+                            operation: QueryOperationNodeType.filter,
+                            source: calleeTargetResult.operation,
+                            parameterName: lambdaExpression.parameters[0].name,
+                            predicate,
+                        },
+                        type: {
+                            kind: schema.SchemaNodeKind.collection,
+                            elementType: calleeTargetResult.type.elementType,
+                        }
+                    }
+                default:
+                    throw new Error();
+            }
+        default:
+        throw new Error();
+    }
 }
