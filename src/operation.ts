@@ -1,5 +1,5 @@
 import * as expr from 'ts-expressions';
-import * as schema from './schema';
+import * as s from './schema';
 
 export type QueryOperation =
     BinaryOperation | UnaryOperation |
@@ -198,13 +198,13 @@ export interface IfOperation {
 
 export type ConvertExpressionToQueryOperationResult = {
     operation: QueryOperation, 
-    type: schema.SchemaNode
+    schema: s.SchemaNode
 }
-export function convertExpressionToQueryOperation(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode): ConvertExpressionToQueryOperationResult {
+export function convertExpressionToQueryOperation(scope: Map<string, s.SchemaNode>, expression: expr.ExpressionNode): ConvertExpressionToQueryOperationResult {
     return convertVisit(scope, expression);
 }
 
-function convertVisit(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode): ConvertExpressionToQueryOperationResult {
+function convertVisit(scope: Map<string, s.SchemaNode>, expression: expr.ExpressionNode): ConvertExpressionToQueryOperationResult {
     switch (expression.kind) {
         case expr.ExpressionKind.parameter:
             return convertParameter(scope, expression);
@@ -224,7 +224,7 @@ function convertVisit(scope: Map<string, schema.SchemaNode>, expression: expr.Ex
     throw new Error();
 }
 
-function convertParameter(scope: Map<string, schema.SchemaNode>, expression: expr.ParameterExpression): ConvertExpressionToQueryOperationResult {
+function convertParameter(scope: Map<string, s.SchemaNode>, expression: expr.ParameterExpression): ConvertExpressionToQueryOperationResult {
     if (!scope.has(expression.name)) {
         throw new Error();
     }
@@ -233,20 +233,20 @@ function convertParameter(scope: Map<string, schema.SchemaNode>, expression: exp
             operation: QueryOperationNodeType.parameter, 
             name: expression.name,
         },
-        type: scope.get(expression.name)!,
+        schema: scope.get(expression.name)!,
     };
 }
 function convertConstant(expression: expr.ConstantExpression): ConvertExpressionToQueryOperationResult {
-    let type: schema.SchemaNode;
+    let schema: s.SchemaNode;
     switch (typeof expression.value) {
         case 'boolean':
-            type = { kind: schema.SchemaNodeKind.boolean } as schema.SchemaNodeBoolean;
+            schema = { kind: s.SchemaNodeKind.boolean } as s.SchemaNodeBoolean;
             break;
         case 'number':
-            type = { kind: schema.SchemaNodeKind.decimal } as schema.SchemaNodeDecimal;
+            schema = { kind: s.SchemaNodeKind.decimal } as s.SchemaNodeDecimal;
             break;
         case 'string':
-            type = { kind: schema.SchemaNodeKind.text } as schema.SchemaNodeText;
+            schema = { kind: s.SchemaNodeKind.text } as s.SchemaNodeText;
             break;
         default:
             throw new Error();
@@ -256,11 +256,11 @@ function convertConstant(expression: expr.ConstantExpression): ConvertExpression
         operation: {
             operation: QueryOperationNodeType.literal,
             value: expression.value
-        } as LiteralOperation,
-        type
+        },
+        schema
     }
 }
-function convertObjectLiteral(scope: Map<string, schema.SchemaNode>, expression: expr.ObjectLiteralExpression): ConvertExpressionToQueryOperationResult {
+function convertObjectLiteral(scope: Map<string, s.SchemaNode>, expression: expr.ObjectLiteralExpression): ConvertExpressionToQueryOperationResult {
     const propertiesVisitResult = expression.properties.map(p => ({ name: p.name, ...convertVisit(scope, p.expression) }));
     return {
         operation: {
@@ -268,40 +268,41 @@ function convertObjectLiteral(scope: Map<string, schema.SchemaNode>, expression:
             fields: propertiesVisitResult.map(p => ({
                 name: p.name,
                 value: p.operation
-            }) as ElementLiteralOperationField),
-        } as ElementLiteralOperation,
-        type: {
-            kind: schema.SchemaNodeKind.complex,
+            })),
+        },
+        schema: {
+            kind: s.SchemaNodeKind.complex,
             fields: propertiesVisitResult.map(r => ({
                 name: r.name,
                 title: r.name,
-                type: r.type
-            }) as schema.SchemaNodeComplexField),
+                schema: r.schema,
+                isNullable: true
+            })),
             key: [],
-        } as schema.SchemaNodeComplex,
+        },
     };
 }
-function convertArrayLiteral(scope: Map<string, schema.SchemaNode>, expression: expr.ArrayLiteralExpression): ConvertExpressionToQueryOperationResult {
+function convertArrayLiteral(scope: Map<string, s.SchemaNode>, expression: expr.ArrayLiteralExpression): ConvertExpressionToQueryOperationResult {
     const elementsVisitResult = expression.elements.map(e => convertVisit(scope, e));
-    const type = elementsVisitResult.length > 0 ? elementsVisitResult[0].type : undefined;
-    if (elementsVisitResult.find(e => !schema.nodesEqual(type!, e.type))) {
+    const schema = elementsVisitResult.length > 0 ? elementsVisitResult[0].schema : undefined;
+    if (elementsVisitResult.find(e => !s.nodesEqual(schema!, e.schema))) {
         throw new Error();
     }
     return {
         operation: {
             operation: QueryOperationNodeType.collectionLiteral,
             elements: elementsVisitResult.map(r => r.operation),
-        } as CollectionLiteralOperation,
-        type: type || { kind: schema.SchemaNodeKind.complex, fields:[], key:[] } as schema.SchemaNodeComplex
+        },
+        schema: schema || { kind: s.SchemaNodeKind.complex, fields:[], key:[] } as s.SchemaNodeComplex
     };
 }
-function convertPropertyAccess(scope: Map<string, schema.SchemaNode>, expression: expr.PropertyAccessExpression): ConvertExpressionToQueryOperationResult {
+function convertPropertyAccess(scope: Map<string, s.SchemaNode>, expression: expr.PropertyAccessExpression): ConvertExpressionToQueryOperationResult {
     const target = convertVisit(scope, expression.expression);
-    if (target.type.kind != schema.SchemaNodeKind.complex) {
-        //TODO: handle other types like text.length
+    if (target.schema.kind != s.SchemaNodeKind.complex) {
+        //TODO: handle other schema kinds like text.length
         throw new Error();
     }
-    const field = target.type.fields.find(f => f.name == expression.name);
+    const field = target.schema.fields.find(f => f.name == expression.name);
     if (!field) {
         throw new Error();
     }
@@ -310,11 +311,11 @@ function convertPropertyAccess(scope: Map<string, schema.SchemaNode>, expression
             operation: QueryOperationNodeType.fieldReference,
             element: target.operation,
             fieldName: expression.name,
-        } as FieldReferenceOperation,
-        type: field.type,
+        },
+        schema: field.schema,
     };
 }
-function convertBinary(scope: Map<string, schema.SchemaNode>, expression: expr.BinaryExpression): ConvertExpressionToQueryOperationResult {
+function convertBinary(scope: Map<string, s.SchemaNode>, expression: expr.BinaryExpression): ConvertExpressionToQueryOperationResult {
     const left = convertVisit(scope, expression.left);
     const right = convertVisit(scope, expression.right);
     let operationKind;
@@ -336,10 +337,75 @@ function convertBinary(scope: Map<string, schema.SchemaNode>, expression: expr.B
             leftOperand: left.operation,
             rightOperand: right.operation,
         } as BinaryOperation,
-        type: getSchemaTypeForBinaryOperation(operationKind, left.type, right.type),
+        schema: getSchemaNodeForBinaryOperation(operationKind, left.schema, right.schema),
     };
 }
-function getSchemaTypeForBinaryOperation(operationKind: QueryOperationNodeType, leftOperandSchema: schema.SchemaNode, rightOperandSchema: schema.SchemaNode): schema.SchemaNode
+function convertCall(scope: Map<string, s.SchemaNode>, expression: expr.CallExpression): ConvertExpressionToQueryOperationResult {
+    if (expression.callee.kind != expr.ExpressionKind.propertyAccess) {
+        throw new Error();
+    }
+    const calleeTargetResult = convertVisit(scope, expression.callee.expression);
+    switch (calleeTargetResult.schema.kind) {
+        case s.SchemaNodeKind.collection:
+            switch (expression.callee.name) {
+                case 'filter':
+                    return convertCollectionFilterCall(scope, calleeTargetResult.operation, calleeTargetResult.schema.elementSchema, expression.arguments);
+                case 'map':
+                    return convertCollectionMapCall(scope, calleeTargetResult.operation, calleeTargetResult.schema.elementSchema, expression.arguments);
+                default:
+                    throw new Error();
+            }
+        default:
+        throw new Error();
+    }
+}
+function convertCollectionFilterCall(scope: Map<string, s.SchemaNode>, source: QueryOperation, sourceElementSchema: s.SchemaNode, args: expr.ExpressionNode[]): ConvertExpressionToQueryOperationResult {
+    if (args.length != 1) {
+        throw new Error();
+    }
+    const { parameterName, operation: predicate } = tryConvertCollectionCallLambda(scope, args[0], sourceElementSchema)
+    return {
+        operation: {
+            operation: QueryOperationNodeType.filter,
+            source,
+            parameterName,
+            predicate,
+        },
+        schema: {
+            kind: s.SchemaNodeKind.collection,
+            elementSchema: sourceElementSchema,
+        }
+    };
+}
+function convertCollectionMapCall(scope: Map<string, s.SchemaNode>, source: QueryOperation, sourceElementSchema: s.SchemaNode, args: expr.ExpressionNode[]): ConvertExpressionToQueryOperationResult {
+    if (args.length != 1) {
+        throw new Error();
+    }
+    const { parameterName, operation: projection, schema: elementSchema } = tryConvertCollectionCallLambda(scope, args[0], sourceElementSchema);
+    return {
+        operation: {
+            operation: QueryOperationNodeType.map,
+            source,
+            parameterName: parameterName,
+            projection
+        },
+        schema: {
+            kind: s.SchemaNodeKind.collection,
+            elementSchema,
+        }
+    };
+}
+function tryConvertCollectionCallLambda(scope: Map<string, s.SchemaNode>, expression: expr.ExpressionNode, collectionElementSchema: s.SchemaNode) {
+    if (expression.kind != expr.ExpressionKind.lambda || expression.parameters.length != 1) {
+        throw new Error();
+    }
+    const parameterName = expression.parameters[0].name;
+    const newScope = new Map(scope);
+    newScope.set(expression.parameters[0].name, collectionElementSchema);
+    return { parameterName, ...convertVisit(newScope, expression.body) };
+}
+
+function getSchemaNodeForBinaryOperation(operationKind: QueryOperationNodeType, leftOperandSchema: s.SchemaNode, rightOperandSchema: s.SchemaNode): s.SchemaNode
 {
     switch (operationKind)
     {
@@ -347,42 +413,42 @@ function getSchemaTypeForBinaryOperation(operationKind: QueryOperationNodeType, 
         case QueryOperationNodeType.subtract:
             switch (leftOperandSchema.kind)
             {
-                case schema.SchemaNodeKind.integer:
+                case s.SchemaNodeKind.integer:
                     switch (rightOperandSchema.kind)
                     {
-                        case schema.SchemaNodeKind.integer:
-                            return { kind: schema.SchemaNodeKind.integer };
-                        case schema.SchemaNodeKind.decimal:
-                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: rightOperandSchema.showAsPercent };
-                        case schema.SchemaNodeKind.currency:
-                            return { kind: schema.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
+                        case s.SchemaNodeKind.integer:
+                            return { kind: s.SchemaNodeKind.integer };
+                        case s.SchemaNodeKind.decimal:
+                            return { kind: s.SchemaNodeKind.decimal, showAsPercent: rightOperandSchema.showAsPercent };
+                        case s.SchemaNodeKind.currency:
+                            return { kind: s.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
                         default:
                             throw new Error();
                     }
-                case schema.SchemaNodeKind.decimal:
+                case s.SchemaNodeKind.decimal:
                     switch (rightOperandSchema.kind)
                     {
-                        case schema.SchemaNodeKind.integer:
-                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent };
-                        case schema.SchemaNodeKind.decimal:
-                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent || rightOperandSchema.showAsPercent };
-                        case schema.SchemaNodeKind.currency:
-                            return { kind: schema.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
+                        case s.SchemaNodeKind.integer:
+                            return { kind: s.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent };
+                        case s.SchemaNodeKind.decimal:
+                            return { kind: s.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent || rightOperandSchema.showAsPercent };
+                        case s.SchemaNodeKind.currency:
+                            return { kind: s.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
                         default:
                             throw new Error();
                     }
-                case schema.SchemaNodeKind.currency:
+                case s.SchemaNodeKind.currency:
                     switch (rightOperandSchema.kind)
                     {
-                        case schema.SchemaNodeKind.integer:
-                        case schema.SchemaNodeKind.decimal:
-                            return { kind: schema.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
-                        case schema.SchemaNodeKind.currency:
+                        case s.SchemaNodeKind.integer:
+                        case s.SchemaNodeKind.decimal:
+                            return { kind: s.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
+                        case s.SchemaNodeKind.currency:
                             if (leftOperandSchema.lcid != rightOperandSchema.lcid)
                             {
                                 throw new Error();
                             }
-                            return { kind: schema.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
+                            return { kind: s.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
                         default:
                             throw new Error();
                     }
@@ -392,35 +458,35 @@ function getSchemaTypeForBinaryOperation(operationKind: QueryOperationNodeType, 
         case QueryOperationNodeType.divide:
             switch (leftOperandSchema.kind)
             {
-                case schema.SchemaNodeKind.integer:
+                case s.SchemaNodeKind.integer:
                     switch (rightOperandSchema.kind)
                     {
-                        case schema.SchemaNodeKind.integer:
-                            return { kind: schema.SchemaNodeKind.integer };
-                        case schema.SchemaNodeKind.decimal:
-                        case schema.SchemaNodeKind.currency:
-                            return { kind: schema.SchemaNodeKind.decimal };
+                        case s.SchemaNodeKind.integer:
+                            return { kind: s.SchemaNodeKind.integer };
+                        case s.SchemaNodeKind.decimal:
+                        case s.SchemaNodeKind.currency:
+                            return { kind: s.SchemaNodeKind.decimal };
                         default:
                             throw new Error();
                     }
-                case schema.SchemaNodeKind.decimal:
+                case s.SchemaNodeKind.decimal:
                     switch (rightOperandSchema.kind)
                     {
-                        case schema.SchemaNodeKind.integer:
-                        case schema.SchemaNodeKind.decimal:
-                        case schema.SchemaNodeKind.currency:
-                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent };
+                        case s.SchemaNodeKind.integer:
+                        case s.SchemaNodeKind.decimal:
+                        case s.SchemaNodeKind.currency:
+                            return { kind: s.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent };
                         default:
                             throw new Error();
                     }
-                case schema.SchemaNodeKind.currency:
+                case s.SchemaNodeKind.currency:
                     switch (rightOperandSchema.kind)
                     {
-                        case schema.SchemaNodeKind.integer:
-                        case schema.SchemaNodeKind.decimal:
-                            return { kind: schema.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
-                        case schema.SchemaNodeKind.currency:
-                            return { kind: schema.SchemaNodeKind.decimal };
+                        case s.SchemaNodeKind.integer:
+                        case s.SchemaNodeKind.decimal:
+                            return { kind: s.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
+                        case s.SchemaNodeKind.currency:
+                            return { kind: s.SchemaNodeKind.decimal };
                         default:
                             throw new Error();
                     }
@@ -430,36 +496,36 @@ function getSchemaTypeForBinaryOperation(operationKind: QueryOperationNodeType, 
         case QueryOperationNodeType.multiply:
             switch (leftOperandSchema.kind)
             {
-                case schema.SchemaNodeKind.integer:
+                case s.SchemaNodeKind.integer:
                     switch (rightOperandSchema.kind)
                     {
-                        case schema.SchemaNodeKind.integer:
-                            return { kind: schema.SchemaNodeKind.integer };
-                        case schema.SchemaNodeKind.decimal:
-                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: rightOperandSchema.showAsPercent };
-                        case schema.SchemaNodeKind.currency:
-                            return { kind: schema.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
+                        case s.SchemaNodeKind.integer:
+                            return { kind: s.SchemaNodeKind.integer };
+                        case s.SchemaNodeKind.decimal:
+                            return { kind: s.SchemaNodeKind.decimal, showAsPercent: rightOperandSchema.showAsPercent };
+                        case s.SchemaNodeKind.currency:
+                            return { kind: s.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
                         default:
                             throw new Error();
                     }
-                case schema.SchemaNodeKind.decimal:
+                case s.SchemaNodeKind.decimal:
                     switch (rightOperandSchema.kind)
                     {
-                        case schema.SchemaNodeKind.integer:
-                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent };
-                        case schema.SchemaNodeKind.decimal:
-                            return { kind: schema.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent || rightOperandSchema.showAsPercent };
-                        case schema.SchemaNodeKind.currency:
-                            return { kind: schema.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
+                        case s.SchemaNodeKind.integer:
+                            return { kind: s.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent };
+                        case s.SchemaNodeKind.decimal:
+                            return { kind: s.SchemaNodeKind.decimal, showAsPercent: leftOperandSchema.showAsPercent || rightOperandSchema.showAsPercent };
+                        case s.SchemaNodeKind.currency:
+                            return { kind: s.SchemaNodeKind.currency, lcid: rightOperandSchema.lcid };
                         default:
                             throw new Error();
                     }
-                case schema.SchemaNodeKind.currency:
+                case s.SchemaNodeKind.currency:
                     switch (rightOperandSchema.kind)
                     {
-                        case schema.SchemaNodeKind.integer:
-                        case schema.SchemaNodeKind.decimal:
-                            return { kind: schema.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
+                        case s.SchemaNodeKind.integer:
+                        case s.SchemaNodeKind.decimal:
+                            return { kind: s.SchemaNodeKind.currency, lcid: leftOperandSchema.lcid };
                         default:
                             throw new Error();
                     }
@@ -468,15 +534,15 @@ function getSchemaTypeForBinaryOperation(operationKind: QueryOperationNodeType, 
             }
         case QueryOperationNodeType.equal:
         case QueryOperationNodeType.notEqual:
-            return { kind: schema.SchemaNodeKind.boolean };
+            return { kind: s.SchemaNodeKind.boolean };
         case QueryOperationNodeType.greater:
         case QueryOperationNodeType.greaterOrEqual:
         case QueryOperationNodeType.less:
         case QueryOperationNodeType.lessOrEqual:
-            if ((leftOperandSchema.kind == schema.SchemaNodeKind.integer || leftOperandSchema.kind == schema.SchemaNodeKind.decimal || leftOperandSchema.kind == schema.SchemaNodeKind.currency) &&
-                (rightOperandSchema.kind == schema.SchemaNodeKind.integer || rightOperandSchema.kind == schema.SchemaNodeKind.decimal || rightOperandSchema.kind == schema.SchemaNodeKind.currency))
+            if ((leftOperandSchema.kind == s.SchemaNodeKind.integer || leftOperandSchema.kind == s.SchemaNodeKind.decimal || leftOperandSchema.kind == s.SchemaNodeKind.currency) &&
+                (rightOperandSchema.kind == s.SchemaNodeKind.integer || rightOperandSchema.kind == s.SchemaNodeKind.decimal || rightOperandSchema.kind == s.SchemaNodeKind.currency))
             {
-                return { kind: schema.SchemaNodeKind.boolean };
+                return { kind: s.SchemaNodeKind.boolean };
             }
             else
             {
@@ -484,9 +550,9 @@ function getSchemaTypeForBinaryOperation(operationKind: QueryOperationNodeType, 
             }
         case QueryOperationNodeType.and:
         case QueryOperationNodeType.or:
-            if (leftOperandSchema.kind == schema.SchemaNodeKind.boolean && rightOperandSchema.kind == schema.SchemaNodeKind.boolean)
+            if (leftOperandSchema.kind == s.SchemaNodeKind.boolean && rightOperandSchema.kind == s.SchemaNodeKind.boolean)
             {
-                return { kind: schema.SchemaNodeKind.boolean, format: leftOperandSchema.format == schema.SchemaNodeBooleanFormat.yesNo && rightOperandSchema.format == schema.SchemaNodeBooleanFormat.yesNo ? schema.SchemaNodeBooleanFormat.yesNo : schema.SchemaNodeBooleanFormat.checkbox };
+                return { kind: s.SchemaNodeKind.boolean, format: leftOperandSchema.format == s.SchemaNodeBooleanFormat.yesNo && rightOperandSchema.format == s.SchemaNodeBooleanFormat.yesNo ? s.SchemaNodeBooleanFormat.yesNo : s.SchemaNodeBooleanFormat.checkbox };
             }
             else
             {
@@ -495,68 +561,4 @@ function getSchemaTypeForBinaryOperation(operationKind: QueryOperationNodeType, 
         default:
             throw new Error();
     }
-}
-function convertCall(scope: Map<string, schema.SchemaNode>, expression: expr.CallExpression): ConvertExpressionToQueryOperationResult {
-    if (expression.callee.kind != expr.ExpressionKind.propertyAccess) {
-        throw new Error();
-    }
-    const calleeTargetResult = convertVisit(scope, expression.callee.expression);
-    switch (calleeTargetResult.type.kind) {
-        case schema.SchemaNodeKind.collection:
-            switch (expression.callee.name) {
-                case 'filter':
-                    return convertCollectionFilterCall(scope, calleeTargetResult.operation, calleeTargetResult.type.elementType, expression.arguments);
-                case 'map':
-                    return convertCollectionMapCall(scope, calleeTargetResult.operation, calleeTargetResult.type.elementType, expression.arguments);
-                default:
-                    throw new Error();
-            }
-        default:
-        throw new Error();
-    }
-}
-function convertCollectionFilterCall(scope: Map<string, schema.SchemaNode>, source: QueryOperation, sourceElementType: schema.SchemaNode, args: expr.ExpressionNode[]): ConvertExpressionToQueryOperationResult {
-    if (args.length != 1) {
-        throw new Error();
-    }
-    const { parameterName, operation: predicate } = tryConvertCollectionCallLambda(scope, args[0], sourceElementType)
-    return {
-        operation: {
-            operation: QueryOperationNodeType.filter,
-            source,
-            parameterName,
-            predicate,
-        },
-        type: {
-            kind: schema.SchemaNodeKind.collection,
-            elementType: sourceElementType,
-        }
-    };
-}
-function convertCollectionMapCall(scope: Map<string, schema.SchemaNode>, source: QueryOperation, sourceElementType: schema.SchemaNode, args: expr.ExpressionNode[]): ConvertExpressionToQueryOperationResult {
-    if (args.length != 1) {
-        throw new Error();
-    }
-    const { parameterName, operation: projection, type: elementType } = tryConvertCollectionCallLambda(scope, args[0], sourceElementType);
-    return {
-        operation: {
-            operation: QueryOperationNodeType.map,
-            source,
-            parameterName: parameterName,
-            projection
-        },
-        type: {
-            kind: schema.SchemaNodeKind.collection,
-            elementType,
-        }
-    };
-}
-function tryConvertCollectionCallLambda(scope: Map<string, schema.SchemaNode>, expression: expr.ExpressionNode, collectionElementType: schema.SchemaNode) {
-    if (expression.kind != expr.ExpressionKind.lambda || expression.parameters.length != 1) {
-        throw new Error();
-    }
-    const parameterName = expression.parameters[0].name;
-    const newScope = new Map(scope);
-    newScope.set(expression.parameters[0].name, collectionElementType);
-    return { parameterName, ...convertVisit(newScope, expression.body) };
 }

@@ -6,10 +6,12 @@ export interface IDataSource<T> {
     filter(predicate: expr.Expression<(element: T) => boolean>): IDataSource<T>;
     filter(predicate: (element: T) => boolean): IDataSource<T>;
     filter(parameterName: string, predicate: op.QueryOperation): IDataSource<T>;
-    //map: <K>(projection: (element: T) => K) => IDataSource<K>;
-    //first: () => Promise<T>;
-    //any: () => Promise<boolean>;
-    toArray: () => Promise<T[]>;
+    map<K>(projection: expr.Expression<(element: T) => K>): IDataSource<K>;
+    map<K>(projection: (element: T) => K): IDataSource<K>;
+    map<K>(parameterName: string, projection: op.QueryOperation): IDataSource<K>;
+    //first(): Promise<T>;
+    //any(): Promise<boolean>;
+    toArray(): Promise<T[]>;
 }
 
 export interface IDataSourceProvider {
@@ -18,12 +20,14 @@ export interface IDataSourceProvider {
 }
 
 export class DataSourceBase<T> implements IDataSource<T> {
-    constructor(provider: IDataSourceProvider, query: op.QueryOperation) {
+    constructor(provider: IDataSourceProvider, query: op.QueryOperation, queryResultSchema?: SchemaNodeComplex) {
         this.provider = provider;
         this.query = query;
+        this.queryResultSchema = queryResultSchema || provider.schema;
     }
     provider: IDataSourceProvider;
     query: op.QueryOperation;
+    queryResultSchema: SchemaNodeComplex;
 
     filter(predicateOrParameterName: expr.Expression<(element: T) => boolean> | ((element: T) => boolean) | string, predicateOperation?: op.QueryOperation): IDataSource<T> {
         const { parameterName, body: predicate } = this.extractLambdaProperties(predicateOrParameterName, predicateOperation);
@@ -33,18 +37,19 @@ export class DataSourceBase<T> implements IDataSource<T> {
             source: this.query,
             parameterName,
             predicate,
-        } as op.FilterOperation);
+        }, this.queryResultSchema);
     }
-    /*map<K>(predicate: (element: T) => K): IDataSource<K> {
-        return new DataSourceBase<K>(this.provider, 
+    map<K>(projectionOrParameterName: expr.Expression<(element: T) => K> | ((element: T) => K) | string, projectionOperation?: op.QueryOperation): IDataSource<T> {
+        const { parameterName, body: projection } = this.extractLambdaProperties(projectionOrParameterName, projectionOperation);
+        return new DataSourceBase<T>(this.provider, 
         {
-            operation: op.QueryOperationNodeType.filter,
+            operation: op.QueryOperationNodeType.map,
             source: this.query,
             parameterName,
-            predicate,
-        } as op.MapOperation);
+            projection,
+        }, this.queryResultSchema);
     }
-    first(): Promise<T> {
+    /*first(): Promise<T> {
 
     }
     any(): Promise<boolean> {
@@ -54,23 +59,28 @@ export class DataSourceBase<T> implements IDataSource<T> {
         return this.provider.execute(this.query);
     }
 
-    private extractLambdaProperties<K extends {}>(bodyOrParameterName: expr.Expression<K> | K | string, bodyOperation?: op.QueryOperation) {
+    private extractLambdaProperties<K extends {}>(bodyOrParameterName: expr.Expression<K> | K | string, bodyOperation?: op.QueryOperation): { parameterName: string, body: op.QueryOperation, bodySchema: SchemaNode } {
         if (typeof bodyOrParameterName == 'string') {
+            const scope = new Map<string, SchemaNode>();
+            scope.set(bodyOrParameterName, this.queryResultSchema);
             return {
                 parameterName: bodyOrParameterName,
-                body: bodyOperation!
+                body: bodyOperation!,
+                bodySchema: op.getOperationResultSchema(scope, bodyOperation!)
             }
         }
         else if (expr.isLambdaExpression<K>(bodyOrParameterName) && bodyOrParameterName.root.parameters.length == 1) {
             const scope = new Map<string, SchemaNode>();
-            scope.set(bodyOrParameterName.root.parameters[0].name, this.provider.schema);
+            scope.set(bodyOrParameterName.root.parameters[0].name, this.queryResultSchema);
+            const convertResult = op.convertExpressionToQueryOperation(scope, bodyOrParameterName.root.body);
             return {
                 parameterName: bodyOrParameterName.root.parameters[0].name,
-                body: op.convertExpressionToQueryOperation(scope, bodyOrParameterName.root.body)
+                body: convertResult.operation,
+                bodySchema: convertResult.schema,
             }
         }
         else {
-            throw new Error('Predicate must be a lambda expression or a query operation');
+            throw new Error('Argument must be a lambda expression or a query operation');
         }
     }
 }

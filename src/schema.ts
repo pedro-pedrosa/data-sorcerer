@@ -30,7 +30,7 @@ export interface SchemaNodeChoice {
 
 export interface SchemaNodeCollection {
     kind: SchemaNodeKind.collection;
-    elementType: SchemaNode;
+    elementSchema: SchemaNode;
 }
 
 export interface SchemaNodeComplex {
@@ -39,7 +39,7 @@ export interface SchemaNodeComplex {
     key: string[];
 }
 export interface SchemaNodeComplexField {
-    type: SchemaNode;
+    schema: SchemaNode;
     name: string;
     title: string;
     description?: string;
@@ -59,7 +59,7 @@ export enum SchemaNodeDateTimeFormat {
 }
 
 export interface SchemaNodeLookup {
-    lookupType: SchemaNodeComplex;
+    lookupSchema: SchemaNodeComplex;
 }
 export interface SchemaNodeLookupBelongs extends SchemaNodeLookup {
     kind: SchemaNodeKind.lookupBelongs;
