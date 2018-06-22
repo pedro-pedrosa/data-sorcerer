@@ -203,7 +203,6 @@ export type ConvertExpressionToQueryOperationResult = {
 export function convertExpressionToQueryOperation(scope: Map<string, s.SchemaNode>, expression: expr.ExpressionNode): ConvertExpressionToQueryOperationResult {
     return convertVisit(scope, expression);
 }
-
 function convertVisit(scope: Map<string, s.SchemaNode>, expression: expr.ExpressionNode): ConvertExpressionToQueryOperationResult {
     switch (expression.kind) {
         case expr.ExpressionKind.parameter:
@@ -237,27 +236,13 @@ function convertParameter(scope: Map<string, s.SchemaNode>, expression: expr.Par
     };
 }
 function convertConstant(expression: expr.ConstantExpression): ConvertExpressionToQueryOperationResult {
-    let schema: s.SchemaNode;
-    switch (typeof expression.value) {
-        case 'boolean':
-            schema = { kind: s.SchemaNodeKind.boolean } as s.SchemaNodeBoolean;
-            break;
-        case 'number':
-            schema = { kind: s.SchemaNodeKind.decimal } as s.SchemaNodeDecimal;
-            break;
-        case 'string':
-            schema = { kind: s.SchemaNodeKind.text } as s.SchemaNodeText;
-            break;
-        default:
-            throw new Error();
-    }
-
+    const operation: LiteralOperation = {
+        operation: QueryOperationNodeType.literal,
+        value: expression.value
+    };
     return {
-        operation: {
-            operation: QueryOperationNodeType.literal,
-            value: expression.value
-        },
-        schema
+        operation,
+        schema: getSchemaNodeForValue(operation.value),
     }
 }
 function convertObjectLiteral(scope: Map<string, s.SchemaNode>, expression: expr.ObjectLiteralExpression): ConvertExpressionToQueryOperationResult {
@@ -284,35 +269,23 @@ function convertObjectLiteral(scope: Map<string, s.SchemaNode>, expression: expr
 }
 function convertArrayLiteral(scope: Map<string, s.SchemaNode>, expression: expr.ArrayLiteralExpression): ConvertExpressionToQueryOperationResult {
     const elementsVisitResult = expression.elements.map(e => convertVisit(scope, e));
-    const schema = elementsVisitResult.length > 0 ? elementsVisitResult[0].schema : undefined;
-    if (elementsVisitResult.find(e => !s.nodesEqual(schema!, e.schema))) {
-        throw new Error();
-    }
     return {
         operation: {
             operation: QueryOperationNodeType.collectionLiteral,
             elements: elementsVisitResult.map(r => r.operation),
         },
-        schema: schema || { kind: s.SchemaNodeKind.complex, fields:[], key:[] } as s.SchemaNodeComplex
+        schema: getSchemaNodeForCollection(elementsVisitResult.map(r => r.schema))
     };
 }
 function convertPropertyAccess(scope: Map<string, s.SchemaNode>, expression: expr.PropertyAccessExpression): ConvertExpressionToQueryOperationResult {
     const target = convertVisit(scope, expression.expression);
-    if (target.schema.kind != s.SchemaNodeKind.complex) {
-        //TODO: handle other schema kinds like text.length
-        throw new Error();
-    }
-    const field = target.schema.fields.find(f => f.name == expression.name);
-    if (!field) {
-        throw new Error();
-    }
     return {
         operation: {
             operation: QueryOperationNodeType.fieldReference,
             element: target.operation,
             fieldName: expression.name,
         },
-        schema: field.schema,
+        schema: getSchemaNodeForFieldReference(target.schema, expression.name),
     };
 }
 function convertBinary(scope: Map<string, s.SchemaNode>, expression: expr.BinaryExpression): ConvertExpressionToQueryOperationResult {
@@ -405,6 +378,132 @@ function tryConvertCollectionCallLambda(scope: Map<string, s.SchemaNode>, expres
     return { parameterName, ...convertVisit(newScope, expression.body) };
 }
 
+export function getOperationResultSchema(scope: Map<string, s.SchemaNode>, queryOperation: QueryOperation): s.SchemaNode {
+    return schemaVisit(scope, queryOperation);
+}
+function schemaVisit(scope: Map<string, s.SchemaNode>, queryOperation: QueryOperation): s.SchemaNode {
+    switch (queryOperation.operation) {
+        case QueryOperationNodeType.parameter:
+            return schemaVisitParameter(scope, queryOperation);
+        case QueryOperationNodeType.literal:
+            return schemaVisitLiteral(queryOperation);
+        case QueryOperationNodeType.elementLiteral:
+            return schemaVisitElementLiteral(scope, queryOperation);
+        case QueryOperationNodeType.collectionLiteral:
+            return schemaVisitCollectionLiteral(scope, queryOperation);
+        case QueryOperationNodeType.fieldReference:
+            return schemaVisitFieldReference(scope, queryOperation);
+        case QueryOperationNodeType.add:
+        case QueryOperationNodeType.and:
+        case QueryOperationNodeType.divide:
+        case QueryOperationNodeType.equal:
+        case QueryOperationNodeType.greater:
+        case QueryOperationNodeType.greaterOrEqual:
+        case QueryOperationNodeType.less:
+        case QueryOperationNodeType.lessOrEqual:
+        case QueryOperationNodeType.multiply:
+        case QueryOperationNodeType.notEqual:
+        case QueryOperationNodeType.or:
+        case QueryOperationNodeType.subtract:
+            return schemaVisitBinary(scope, queryOperation);
+        case QueryOperationNodeType.filter:
+            return schemaVisitFilter(scope, queryOperation);
+        case QueryOperationNodeType.map:
+            return schemaVisitMap(scope, queryOperation);
+    }
+    throw new Error();
+}
+
+function schemaVisitParameter(scope: Map<string, s.SchemaNode>, queryOperation: ParameterOperation): s.SchemaNode {
+    if (!scope.has(queryOperation.name)) {
+        throw new Error();
+    }
+    return scope.get(queryOperation.name)!
+}
+function schemaVisitLiteral(queryOperation: LiteralOperation): s.SchemaNode {
+    return getSchemaNodeForValue(queryOperation.value);
+}
+function schemaVisitElementLiteral(scope: Map<string, s.SchemaNode>, queryOperation: ElementLiteralOperation): s.SchemaNode {
+    return {
+        kind: s.SchemaNodeKind.complex,
+        fields: queryOperation.fields.map(r => ({
+            name: r.name,
+            title: r.name,
+            schema: schemaVisit(scope, r.value),
+            isNullable: true
+        })),
+        key: [],
+    }
+}
+function schemaVisitCollectionLiteral(scope: Map<string, s.SchemaNode>, queryOperation: CollectionLiteralOperation): s.SchemaNode {
+    return getSchemaNodeForCollection(queryOperation.elements.map(e => schemaVisit(scope, e)));
+}
+function schemaVisitFieldReference(scope: Map<string, s.SchemaNode>, queryOperation: FieldReferenceOperation): s.SchemaNode {
+    return getSchemaNodeForFieldReference(schemaVisit(scope, queryOperation.element), queryOperation.fieldName);
+}
+function schemaVisitBinary(scope: Map<string, s.SchemaNode>, queryOperation: BinaryOperation): s.SchemaNode {
+    const left = schemaVisit(scope, queryOperation.leftOperand);
+    const right = schemaVisit(scope, queryOperation.rightOperand);
+    return getSchemaNodeForBinaryOperation(queryOperation.operation, left, right);
+}
+function schemaVisitFilter(scope: Map<string, s.SchemaNode>, queryOperation: FilterOperation): s.SchemaNode {
+    const source = schemaVisit(scope, queryOperation.source);
+    if (source.kind != s.SchemaNodeKind.collection) {
+        throw new Error();
+    }
+    const newScope = new Map(scope);
+    newScope.set(queryOperation.parameterName, source.elementSchema);
+    if (schemaVisit(newScope, queryOperation.predicate).kind != s.SchemaNodeKind.boolean) {
+        throw new Error();
+    }
+    return source;
+}
+function schemaVisitMap(scope: Map<string, s.SchemaNode>, queryOperation: MapOperation): s.SchemaNode {
+    const source = schemaVisit(scope, queryOperation.source);
+    if (source.kind != s.SchemaNodeKind.collection) {
+        throw new Error();
+    }
+    const newScope = new Map(scope);
+    newScope.set(queryOperation.parameterName, source.elementSchema);
+    return {
+        kind: s.SchemaNodeKind.collection,
+        elementSchema: schemaVisit(newScope, queryOperation.projection),
+    };
+}
+
+function getSchemaNodeForValue(value: any): s.SchemaNode {
+    switch (typeof value) {
+        case 'boolean':
+            return { kind: s.SchemaNodeKind.boolean } as s.SchemaNodeBoolean;
+        case 'number':
+            return { kind: s.SchemaNodeKind.decimal } as s.SchemaNodeDecimal;
+        case 'string':
+            return { kind: s.SchemaNodeKind.text } as s.SchemaNodeText;
+        default:
+            throw new Error();
+    }
+}
+function getSchemaNodeForCollection(elementSchemas: s.SchemaNode[]): s.SchemaNode {
+    const schema = elementSchemas.length > 0 ? elementSchemas[0] : undefined;
+    if (elementSchemas.find(e => !s.nodesEqual(schema!, e))) {
+        throw new Error();
+    }
+    return {
+        kind: s.SchemaNodeKind.collection,
+        elementSchema: schema || { kind: s.SchemaNodeKind.complex, fields:[], key:[] }
+    };
+}
+function getSchemaNodeForFieldReference(target: s.SchemaNode, fieldName: string): s.SchemaNode {
+    if (target.kind != s.SchemaNodeKind.complex) {
+        //TODO: handle other schema kinds like text.length
+        throw new Error();
+    }
+    const field = target.fields.find(f => f.name == fieldName);
+    if (!field) {
+        throw new Error();
+    }
+    return field.schema;
+}
 function getSchemaNodeForBinaryOperation(operationKind: QueryOperationNodeType, leftOperandSchema: s.SchemaNode, rightOperandSchema: s.SchemaNode): s.SchemaNode
 {
     switch (operationKind)
