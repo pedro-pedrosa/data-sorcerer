@@ -1,11 +1,14 @@
 import { IDataSourceProvider } from '../datasource';
 import * as op from '../operation';
+import { SchemaNodeComplex } from '../schema';
 
 export class InMemoryProvider<T = any> implements IDataSourceProvider {
-    constructor(data: T[]) {
+    constructor(data: T[], schema: SchemaNodeComplex) {
         this.data = data;
+        this.schema = schema;
     }
     data: T[];
+    schema: SchemaNodeComplex;
     execute(query: op.QueryOperation) {
         return Promise.resolve(this.visit(query));
     }

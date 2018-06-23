@@ -1,13 +1,16 @@
-import * as op from '../operation';
 import { IDataSourceProvider } from '../datasource';
+import { QueryOperation } from '../operation';
+import { SchemaNodeComplex } from '../schema';
 
 //TODO: maybe extract this to a dom-only module in the future and remove "dom" lib from ts.config
 export class FetchProvider implements IDataSourceProvider {
-    constructor(url: string) {
+    constructor(url: string, schema: SchemaNodeComplex) {
         this.url = url;
+        this.schema = schema;
     }
     url: string;
-    async execute(query: op.QueryOperation) {
+    schema: SchemaNodeComplex;
+    async execute(query: QueryOperation) {
         const response = await fetch(this.url, { 
             method: 'POST',
             headers: {
