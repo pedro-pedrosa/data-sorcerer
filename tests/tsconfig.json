@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "importHelpers": true,
+        "alwaysStrict": true,
+        "strictNullChecks": true,
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "removeComments": true,
+        "outDir": "./lib",
+        "declaration": true,
+        "declarationDir": "./lib",
+        "lib": [
+          "es2017", "dom"
+        ]
+    },
+    "include": [
+        "src/**/*"
+    ]
+}

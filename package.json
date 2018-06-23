@@ -2,7 +2,7 @@
   "name": "data-sorcerer",
   "version": "0.0.1",
   "description": "Query any data source using a common, fluent API",
-  "main": "lib/index.js",
+  "main": "lib/index",
   "scripts": {
     "test": "jest"
   },
@@ -21,6 +21,10 @@
   },
   "homepage": "https://github.com/pedro-pedrosa/data-sorcerer#readme",
   "dependencies": {
-    "ts-expressions": "0.0.3"
+    "ts-expressions": "0.0.4"
+  },
+  "devDependencies": {
+    "jest": "^23.1.0",
+    "ttypescript": "^1.4.6"
   }
 }
