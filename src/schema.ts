@@ -1,4 +1,7 @@
-export type SchemaNode = SchemaNodeBoolean | SchemaNodeChoice | SchemaNodeCollection | SchemaNodeComplex | SchemaNodeDateTime | SchemaNodeLookupBelongs | SchemaNodeLookupContains | SchemaNodeIntegerNumber | SchemaNodeDecimal | SchemaNodeCurrency | SchemaNodeText;
+export type SchemaNode = SchemaNodeBoolean | SchemaNodeChoice | SchemaNodeCollection | 
+    SchemaNodeComplex | SchemaNodeDateTime | SchemaNodeLookupBelongs | SchemaNodeLookupContains | 
+    SchemaNodeLookupHasMany | SchemaNodeIntegerNumber | SchemaNodeDecimal | SchemaNodeCurrency | 
+    SchemaNodeText;
 export enum SchemaNodeKind {
 	text,
 	choice,
@@ -11,6 +14,7 @@ export enum SchemaNodeKind {
     collection,
     lookupBelongs,
     lookupContains,
+    lookupHasMany,
 }
 
 export interface SchemaNodeBoolean {
@@ -68,6 +72,12 @@ export interface SchemaNodeLookupBelongs extends SchemaNodeLookup {
 export interface SchemaNodeLookupContains extends SchemaNodeLookup {
     kind: SchemaNodeKind.lookupContains;
     lookupForeignFieldNames: string[];
+}
+export interface SchemaNodeLookupHasMany extends SchemaNodeLookup {
+    kind: SchemaNodeKind.lookupHasMany;
+    relationshipSchema: SchemaNodeComplex;
+    thisFieldNames: string[];
+    lookupFieldNames: string[];
 }
 
 export interface SchemaNodeNumber {
