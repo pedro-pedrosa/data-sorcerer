@@ -33,7 +33,7 @@ const discountOrders = orders
     .filter(order => order.details.any(detail => detail.discount > 0))
     .map(order => ({
         orderId: order.orderId,
-        products: order.details
+        products: order.orderDetails
             .filter(detail => detail.discount > 0)
             .map(detail => ({
                 name: detail.product.productName
