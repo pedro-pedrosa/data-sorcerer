@@ -1,6 +1,135 @@
 import * as s from '../../../lib/schema';
+import { IDataSource } from '../../../lib/datasource';
 
-const shipper: s.SchemaNodeComplex = {
+export interface Shipper {
+    shipperId: number;
+    companyName: string;
+    phone: string;
+    orders: IDataSource<Order>;
+}
+export interface Region {
+    regionId: number;
+    regionDescription: string;
+}
+export interface Category {
+    categoryId: number;
+    categoryName: string;
+    description: string;
+    picture: string;
+    territories: IDataSource<Territory>;
+    products: IDataSource<Product>;
+}
+export interface Supplier {
+    supplierId: number;
+    companyName: string;
+    contactName: string;
+    contactTitle: string;
+    address: string;
+    city: string;
+    region: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+    fax: string;
+    homePage: string;
+    products: IDataSource<Product>;
+}
+export interface CustomerDemographics {
+    customerTypeId: string;
+    customerDescription: string;
+    customers: IDataSource<Customer>;
+}
+export interface Customer {
+    customerId: number;
+    companyName: string;
+    contactName: string;
+    contactTitle: string;
+    address: string;
+    city: string;
+    region: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+    fax: string;
+    orders: IDataSource<Order>;
+    demographics: IDataSource<CustomerDemographics>;
+}
+export interface Territory {
+    territoryId: number;
+    territoryDescription: string;
+    regionId: number;
+    region: Region;
+    employees: IDataSource<Employee>;
+}
+export interface Product {
+    productId: number;
+    productName: string;
+    supplierId: number;
+    supplier: Supplier;
+    categoryId: number;
+    category: Category;
+    quantityPerUnit: number;
+    unitPrice: number;
+    unitsInStock: number;
+    unitsOnOrder: number;
+    reorderLevel: number;
+    discontinued: boolean;
+}
+export interface Employee {
+    employeeId: number;
+    lastName: string;
+    firstName: string;
+    title: string;
+    titleOfCourtesy: string;
+    birthDate: Date;
+    hireDate: Date;
+    address: string;
+    city: string;
+    region: string;
+    postalCode: string;
+    country: string;
+    homePhone: string;
+    extension: string;
+    photo: string;
+    notes: string;
+    reportsToId: number;
+    reportsTo: Employee;
+    photoPath: string;
+    salary: number;
+    orders: IDataSource<Order>;
+    territories: IDataSource<Territory>;
+}
+export interface Order {
+    orderId: number;
+    customerId: number;
+    customer: Customer;
+    employeeId: number;
+    employee: Employee;
+    orderDate: Date;
+    requiredDate: Date;
+    shippedDate: Date;
+    shipperId: number;
+    shippedVia: Shipper;
+    freight: number;
+    shipName: string;
+    shipAddress: string;
+    shipCity: string;
+    shipRegion: string;
+    shipPostalCode: string;
+    shipCountry: string;
+    orderDetails: IDataSource<OrderDetail>;
+}
+export interface OrderDetail {
+    orderId: number;
+    order: Order;
+    productId: number;
+    product: Product;
+    unitPrice: number;
+    quantity: number;
+    discount: number;
+}
+
+export const shipperSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -32,7 +161,7 @@ const shipper: s.SchemaNodeComplex = {
     ],
     key: [ 'shipperId' ]
 };
-const region: s.SchemaNodeComplex = {
+export const regionSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -55,7 +184,7 @@ const region: s.SchemaNodeComplex = {
     ],
     key: [ 'regionId' ]
 };
-const category: s.SchemaNodeComplex = {
+export const categorySchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -94,7 +223,7 @@ const category: s.SchemaNodeComplex = {
     ],
     key: [ 'categoryId' ]
 };
-const supplier: s.SchemaNodeComplex = {
+export const supplierSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -206,7 +335,7 @@ const supplier: s.SchemaNodeComplex = {
     ],
     key: [ 'supplierId' ]
 };
-const customerDemographics: s.SchemaNodeComplex = {
+export const customerDemographicsSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -229,7 +358,7 @@ const customerDemographics: s.SchemaNodeComplex = {
     ],
     key: [ 'customerTypeId' ]
 };
-const customer: s.SchemaNodeComplex = {
+export const customerSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -333,7 +462,7 @@ const customer: s.SchemaNodeComplex = {
     ],
     key: [ 'customerId' ]
 };
-const territory: s.SchemaNodeComplex = {
+export const territorySchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -367,15 +496,15 @@ const territory: s.SchemaNodeComplex = {
             title: 'Region',
             schema: {
                 kind: s.SchemaNodeKind.lookupBelongs,
-                lookupSchema: region,
+                lookupSchema: regionSchema,
                 foreignFieldNames: [ 'regionId' ],
             },
             isNullable: false,
         },
     ],
-    key: [ 'shipperId' ]
+    key: [ 'territoryId' ]
 };
-const product: s.SchemaNodeComplex = {
+export const productSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -408,7 +537,7 @@ const product: s.SchemaNodeComplex = {
             title: 'Supplier',
             schema: {
                 kind: s.SchemaNodeKind.lookupBelongs,
-                lookupSchema: supplier,
+                lookupSchema: supplierSchema,
                 foreignFieldNames: [ 'supplierId' ],
             },
             isNullable: false,
@@ -426,7 +555,7 @@ const product: s.SchemaNodeComplex = {
             title: 'Category',
             schema: {
                 kind: s.SchemaNodeKind.lookupBelongs,
-                lookupSchema: category,
+                lookupSchema: categorySchema,
                 foreignFieldNames: [ 'categoryId' ],
             },
             isNullable: false,
@@ -482,9 +611,9 @@ const product: s.SchemaNodeComplex = {
             isNullable: false,
         },
     ],
-    key: [ 'shipperId' ]
+    key: [ 'productId' ]
 };
-const customerCustomerDemographics: s.SchemaNodeComplex = {
+export const customerCustomerDemographicsSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -507,7 +636,7 @@ const customerCustomerDemographics: s.SchemaNodeComplex = {
     ],
     key: [ 'customerId', 'customerTypeId' ]
 };
-const employee: s.SchemaNodeComplex = {
+export const employeeSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -657,7 +786,7 @@ const employee: s.SchemaNodeComplex = {
             schema: {
                 kind: s.SchemaNodeKind.integer,
             },
-            isNullable: false,
+            isNullable: true,
         },
         {
             name: 'photoPath',
@@ -679,7 +808,7 @@ const employee: s.SchemaNodeComplex = {
     ],
     key: [ 'employeeId' ]
 };
-const order: s.SchemaNodeComplex = {
+export const orderSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -703,7 +832,7 @@ const order: s.SchemaNodeComplex = {
             title: 'Customer',
             schema: {
                 kind: s.SchemaNodeKind.lookupBelongs,
-                lookupSchema: customer,
+                lookupSchema: customerSchema,
                 foreignFieldNames: [ 'customerId' ],
             },
             isNullable: false,
@@ -721,7 +850,7 @@ const order: s.SchemaNodeComplex = {
             title: 'Employee',
             schema: {
                 kind: s.SchemaNodeKind.lookupBelongs,
-                lookupSchema: employee,
+                lookupSchema: employeeSchema,
                 foreignFieldNames: [ 'employeeId' ],
             },
             isNullable: false,
@@ -766,7 +895,7 @@ const order: s.SchemaNodeComplex = {
             title: 'Shipped Via',
             schema: {
                 kind: s.SchemaNodeKind.lookupBelongs,
-                lookupSchema: shipper,
+                lookupSchema: shipperSchema,
                 foreignFieldNames: [ 'shipperId' ],
             },
             isNullable: false,
@@ -837,7 +966,7 @@ const order: s.SchemaNodeComplex = {
     ],
     key: [ 'orderId' ]
 };
-const employeeTerritory: s.SchemaNodeComplex = {
+export const employeeTerritorySchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -860,7 +989,7 @@ const employeeTerritory: s.SchemaNodeComplex = {
     ],
     key: [ 'employeeId', 'territoryId' ]
 };
-const orderDetail: s.SchemaNodeComplex = {
+export const orderDetailSchema: s.SchemaNodeComplex = {
     kind: s.SchemaNodeKind.complex,
     fields: [
         {
@@ -876,7 +1005,7 @@ const orderDetail: s.SchemaNodeComplex = {
             title: 'Order',
             schema: {
                 kind: s.SchemaNodeKind.lookupBelongs,
-                lookupSchema: order,
+                lookupSchema: orderSchema,
                 foreignFieldNames: [ 'orderId' ],
             },
             isNullable: false,
@@ -894,7 +1023,7 @@ const orderDetail: s.SchemaNodeComplex = {
             title: 'Product',
             schema: {
                 kind: s.SchemaNodeKind.lookupBelongs,
-                lookupSchema: product,
+                lookupSchema: productSchema,
                 foreignFieldNames: [ 'productId' ],
             },
             isNullable: false,
@@ -926,133 +1055,133 @@ const orderDetail: s.SchemaNodeComplex = {
             isNullable: false,
         },
     ],
-    key: [ 'employeeId', 'territoryId' ]
+    key: [ 'orderId', 'productId' ]
 };
 
-employee.fields.push({
+employeeSchema.fields.push({
     name: 'reportsTo',
     title: 'Reports to',
     schema: {
         kind: s.SchemaNodeKind.lookupBelongs,
-        lookupSchema: employee,
+        lookupSchema: employeeSchema,
         foreignFieldNames: [ 'reportsToId' ],
     },
-    isNullable: false,
+    isNullable: true,
 });
-employee.fields.push({
+employeeSchema.fields.push({
     name: 'orders',
     title: 'Orders',
     schema: {
         kind: s.SchemaNodeKind.lookupContains,
-        lookupSchema: order,
+        lookupSchema: orderSchema,
         lookupForeignFieldNames: [ 'employeeId' ],
     },
     isNullable: false
 });
-employee.fields.push({
+employeeSchema.fields.push({
     name: 'territories',
     title: 'Territories',
     schema: {
         kind: s.SchemaNodeKind.lookupHasMany,
-        lookupSchema: territory,
-        relationshipSchema: employeeTerritory,
+        lookupSchema: territorySchema,
+        relationshipSchema: employeeTerritorySchema,
         thisFieldNames: [ 'employeeId' ],
         lookupFieldNames: [ 'territoryId' ],
     },
     isNullable: false
 });
-shipper.fields.push({
+shipperSchema.fields.push({
     name: 'orders',
     title: 'Orders',
     schema: {
         kind: s.SchemaNodeKind.lookupContains,
-        lookupSchema: order,
+        lookupSchema: orderSchema,
         lookupForeignFieldNames: [ 'shipperId' ],
     },
     isNullable: false
 });
-territory.fields.push({
+territorySchema.fields.push({
     name: 'employees',
     title: 'Employees',
     schema: {
         kind: s.SchemaNodeKind.lookupHasMany,
-        lookupSchema: employee,
-        relationshipSchema: employeeTerritory,
+        lookupSchema: employeeSchema,
+        relationshipSchema: employeeTerritorySchema,
         thisFieldNames: [ 'territoryId' ],
         lookupFieldNames: [ 'employeeId' ],
     },
     isNullable: false
 });
-order.fields.push({
+orderSchema.fields.push({
     name: 'orderDetails',
     title: 'Order Details',
     schema: {
         kind: s.SchemaNodeKind.lookupContains,
-        lookupSchema: orderDetail,
+        lookupSchema: orderDetailSchema,
         lookupForeignFieldNames: [ 'orderId' ],
     },
     isNullable: false
 });
-customer.fields.push({
+customerSchema.fields.push({
     name: 'orders',
     title: 'Orders',
     schema: {
         kind: s.SchemaNodeKind.lookupContains,
-        lookupSchema: order,
+        lookupSchema: orderSchema,
         lookupForeignFieldNames: [ 'customerId' ],
     },
     isNullable: false
 });
-customer.fields.push({
+customerSchema.fields.push({
     name: 'demographics',
     title: 'Demographics',
     schema: {
         kind: s.SchemaNodeKind.lookupHasMany,
-        lookupSchema: customerDemographics,
-        relationshipSchema: customerCustomerDemographics,
+        lookupSchema: customerDemographicsSchema,
+        relationshipSchema: customerCustomerDemographicsSchema,
         thisFieldNames: [ 'customerId' ],
         lookupFieldNames: [ 'customerTypeId' ],
     },
     isNullable: false
 });
-region.fields.push({
+categorySchema.fields.push({
     name: 'territories',
     title: 'Territories',
     schema: {
         kind: s.SchemaNodeKind.lookupContains,
-        lookupSchema: territory,
+        lookupSchema: territorySchema,
         lookupForeignFieldNames: [ 'regionId' ],
     },
     isNullable: false
 });
-category.fields.push({
+categorySchema.fields.push({
     name: 'products',
     title: 'Products',
     schema: {
         kind: s.SchemaNodeKind.lookupContains,
-        lookupSchema: product,
+        lookupSchema: productSchema,
         lookupForeignFieldNames: [ 'categoryId' ],
     },
     isNullable: false
 });
-customerDemographics.fields.push({
+customerDemographicsSchema.fields.push({
     name: 'customers',
     title: 'Customers',
     schema: {
         kind: s.SchemaNodeKind.lookupHasMany,
-        lookupSchema: customer,
-        relationshipSchema: customerCustomerDemographics,
+        lookupSchema: customerSchema,
+        relationshipSchema: customerCustomerDemographicsSchema,
         thisFieldNames: [ 'customerTypeId' ],
         lookupFieldNames: [ 'customerId' ],
     },
     isNullable: false
 });
-supplier.fields.push({
+supplierSchema.fields.push({
     name: 'products',
     title: 'Products',
     schema: {
         kind: s.SchemaNodeKind.lookupContains,
-        lookupSchema: product,
+        lookupSchema: productSchema,
         lookupForeignFieldNames: [ 'supplierId' ],
     },
     isNullable: false
