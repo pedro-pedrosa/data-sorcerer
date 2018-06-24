@@ -78,3 +78,15 @@ export class DataSourceBase<T> implements IDataSource<T> {
         }
     }
 }
+
+export interface INestedDataSource<T> {
+    filter(predicate: expr.Expression<(element: T) => boolean>): INestedDataSource<T>;
+    filter(predicate: (element: T) => boolean): INestedDataSource<T>;
+    filter(parameterName: string, predicate: op.QueryOperation): INestedDataSource<T>;
+    map<K>(projection: expr.Expression<(element: T) => K>): INestedDataSource<K>;
+    map<K>(projection: (element: T) => K): INestedDataSource<K>;
+    map<K>(parameterName: string, projection: op.QueryOperation): INestedDataSource<K>;
+    //first(): T;
+    //any(): boolean;
+    toArray(): T[];
+}
