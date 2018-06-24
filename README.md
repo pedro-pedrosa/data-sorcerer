@@ -31,7 +31,7 @@ const londonEmployees = employees
 //Get orders where a discount has been applied and select the product name
 const discountOrders = orders
     .filter(order => order.details.any(detail => detail.discount > 0))
-    .map(o => ({
+    .map(order => ({
         orderId: order.orderId,
         products: order.details
             .filter(detail => detail.discount > 0)
