@@ -49,12 +49,6 @@ export class DataSourceBase<T> implements IDataSource<T> {
             projection,
         }, this.queryResultSchema);
     }
-    /*first(): Promise<T> {
-
-    }
-    any(): Promise<boolean> {
-        
-    }*/
     toArray(): Promise<T[]> {
         return this.provider.execute(this.query);
     }
