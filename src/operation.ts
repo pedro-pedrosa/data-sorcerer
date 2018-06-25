@@ -378,11 +378,14 @@ function tryConvertCollectionCallLambda(scope: Map<string, s.SchemaNode>, expres
     return { parameterName, ...convertVisit(newScope, expression.body) };
 }
 
+export const dataSourceReferenceScopeName = '$datasource';
 export function getOperationResultSchema(scope: Map<string, s.SchemaNode>, queryOperation: QueryOperation): s.SchemaNode {
     return schemaVisit(scope, queryOperation);
 }
 function schemaVisit(scope: Map<string, s.SchemaNode>, queryOperation: QueryOperation): s.SchemaNode {
     switch (queryOperation.operation) {
+        case QueryOperationNodeType.dataSourceReference:
+            return schemaVisitDataSourceReference(scope);
         case QueryOperationNodeType.parameter:
             return schemaVisitParameter(scope, queryOperation);
         case QueryOperationNodeType.literal:
@@ -414,6 +417,12 @@ function schemaVisit(scope: Map<string, s.SchemaNode>, queryOperation: QueryOper
     throw new Error();
 }
 
+function schemaVisitDataSourceReference(scope: Map<string, s.SchemaNode>): s.SchemaNode {
+    if (!scope.has(dataSourceReferenceScopeName)) {
+        throw new Error();
+    }
+    return scope.get(dataSourceReferenceScopeName)!
+}
 function schemaVisitParameter(scope: Map<string, s.SchemaNode>, queryOperation: ParameterOperation): s.SchemaNode {
     if (!scope.has(queryOperation.name)) {
         throw new Error();
