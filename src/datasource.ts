@@ -19,7 +19,7 @@ export interface IDataSourceProvider {
     execute<T>(query: op.QueryOperation): Promise<T[]>;
 }
 
-export class DataSourceBase<T> implements IDataSource<T> {
+export class DataSourceBase<T = any> implements IDataSource<T> {
     constructor(provider: IDataSourceProvider, query: op.QueryOperation, queryResultSchema?: SchemaNodeCollection) {
         this.provider = provider;
         this.query = query;
@@ -43,6 +43,9 @@ export class DataSourceBase<T> implements IDataSource<T> {
          }]]);
     }
 
+    filter(predicate: expr.Expression<(element: T) => boolean>): IDataSource<T>;
+    filter(predicate: (element: T) => boolean): IDataSource<T>;
+    filter(parameterName: string, predicate: op.QueryOperation): IDataSource<T>;
     filter(predicateOrParameterName: expr.Expression<(element: T) => boolean> | ((element: T) => boolean) | string, predicateOperation?: op.QueryOperation): IDataSource<T> {
         const { parameterName, body: predicate } = this.extractLambdaProperties(predicateOrParameterName, predicateOperation);
         return new DataSourceBase<T>(this.provider, 
@@ -53,6 +56,9 @@ export class DataSourceBase<T> implements IDataSource<T> {
             predicate,
         }, this.queryResultSchema);
     }
+    map<K>(projection: expr.Expression<(element: T) => K>): IDataSource<K>;
+    map<K>(projection: (element: T) => K): IDataSource<K>;
+    map<K>(parameterName: string, projection: op.QueryOperation): IDataSource<K>;
     map<K>(projectionOrParameterName: expr.Expression<(element: T) => K> | ((element: T) => K) | string, projectionOperation?: op.QueryOperation): IDataSource<T> {
         const { parameterName, body: projection } = this.extractLambdaProperties(projectionOrParameterName, projectionOperation);
         return new DataSourceBase<T>(this.provider, 
