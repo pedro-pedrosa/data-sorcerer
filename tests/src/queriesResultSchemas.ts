@@ -13,7 +13,7 @@ describe('queries result schemas', () => {
             elementSchema: northwind.productSchema
         } as s.SchemaNodeCollection);
     });
-    test.skip('filter', () => {
+    test('filter', () => {
         const query: QueryOperation = { 
             operation: QueryOperationNodeType.filter,
             source: { 
@@ -42,7 +42,7 @@ describe('queries result schemas', () => {
             elementSchema: northwind.productSchema
         } as s.SchemaNodeCollection);
     });
-    test.skip('map to string', () => {
+    test('map to string', () => {
         const query: QueryOperation = { 
             operation: QueryOperationNodeType.map,
             source: { 
@@ -62,11 +62,12 @@ describe('queries result schemas', () => {
         expect(ds.queryResultSchema).toEqual({
             kind: s.SchemaNodeKind.collection,
             elementSchema: {
-                kind: s.SchemaNodeKind.text
+                kind: s.SchemaNodeKind.text,
+                maxLength: 10
             }
         } as s.SchemaNodeCollection);
     });
-    test.skip('map to element literal', () => {
+    test('map to element literal', () => {
         const query: QueryOperation = { 
             operation: QueryOperationNodeType.map,
             source: { 
@@ -124,23 +125,23 @@ describe('queries result schemas', () => {
                         schema: {
                             kind: s.SchemaNodeKind.integer,
                         },
-                        isNullable: false
+                        isNullable: true
                     },
                     {
                         name: 'customer',
                         title: 'customer',
                         schema: {
-                            kind: s.SchemaNodeKind.text,
+                            kind: s.SchemaNodeKind.integer,
                         },
-                        isNullable: false
+                        isNullable: true
                     },
                     {
                         name: 'employee',
                         title: 'employee',
                         schema: {
-                            kind: s.SchemaNodeKind.text,
+                            kind: s.SchemaNodeKind.integer,
                         },
-                        isNullable: false
+                        isNullable: true
                     },
                 ],
                 key: []
@@ -148,7 +149,7 @@ describe('queries result schemas', () => {
         };
         expect(ds.queryResultSchema).toEqual(expected);
     });
-    test.skip('filter and map', () => {
+    test('filter and map', () => {
         const query: QueryOperation = {
             operation: QueryOperationNodeType.map,
             source: { 
@@ -192,7 +193,7 @@ describe('queries result schemas', () => {
         };
         expect(ds.queryResultSchema).toEqual(expected);
     });
-    test.skip('map and filter', () => {
+    test('map and filter', () => {
         const query: QueryOperation = { 
             operation: QueryOperationNodeType.filter,
             source: { 
@@ -269,23 +270,23 @@ describe('queries result schemas', () => {
                         schema: {
                             kind: s.SchemaNodeKind.integer,
                         },
-                        isNullable: false
+                        isNullable: true
                     },
                     {
                         name: 'customer',
                         title: 'customer',
                         schema: {
-                            kind: s.SchemaNodeKind.text,
+                            kind: s.SchemaNodeKind.integer,
                         },
-                        isNullable: false
+                        isNullable: true
                     },
                     {
                         name: 'employee',
                         title: 'employee',
                         schema: {
-                            kind: s.SchemaNodeKind.text,
+                            kind: s.SchemaNodeKind.integer,
                         },
-                        isNullable: false
+                        isNullable: true
                     },
                 ],
                 key: []
@@ -293,7 +294,7 @@ describe('queries result schemas', () => {
         };
         expect(ds.queryResultSchema).toEqual(expected);
     });
-    test.skip('nested queries', () => {
+    test('nested queries', () => {
         const query: QueryOperation = { 
             operation: QueryOperationNodeType.map,
             source: {
@@ -326,7 +327,7 @@ describe('queries result schemas', () => {
                                         operation: QueryOperationNodeType.parameter,
                                         name: 'order',
                                     },
-                                    fieldName: 'details',
+                                    fieldName: 'orderDetails',
                                 },
                                 parameterName: 'detail',
                                 predicate: {
@@ -382,7 +383,7 @@ describe('queries result schemas', () => {
                 ]
             },
         };
-        const ds = new DataSourceBase(new TestProvider(northwind.productSchema), query);
+        const ds = new DataSourceBase(new TestProvider(northwind.orderSchema), query);
         const expected: s.SchemaNodeCollection = {
             kind: s.SchemaNodeKind.collection,
             elementSchema: {
@@ -394,7 +395,7 @@ describe('queries result schemas', () => {
                         schema: {
                             kind: s.SchemaNodeKind.integer
                         },
-                        isNullable: false
+                        isNullable: true
                     },
                     {
                         name: 'products',
@@ -408,9 +409,10 @@ describe('queries result schemas', () => {
                                         name: 'name',
                                         title: 'name',
                                         schema: {
-                                            kind: s.SchemaNodeKind.text
+                                            kind: s.SchemaNodeKind.text,
+                                            maxLength: 40,
                                         },
-                                        isNullable: false
+                                        isNullable: true
                                     },
                                     {
                                         name: 'discount',
@@ -419,13 +421,13 @@ describe('queries result schemas', () => {
                                             kind: s.SchemaNodeKind.currency,
                                             lcid: 1033
                                         },
-                                        isNullable: false
+                                        isNullable: true
                                     },
                                 ],
                                 key: [],
                             }
                         },
-                        isNullable: false
+                        isNullable: true
                     },
                 ],
                 key: [],
