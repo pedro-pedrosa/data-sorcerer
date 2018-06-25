@@ -24,7 +24,11 @@
     "ts-expressions": "0.0.4"
   },
   "devDependencies": {
+    "@types/jest": "^23.1.1",
     "jest": "^23.1.0",
     "ttypescript": "^1.4.6"
+  },
+  "jest": {
+    "testRegex": "(?:/tests/lib/[^\\./]*)\\.(?:jsx?)$"
   }
 }
