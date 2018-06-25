@@ -4,24 +4,11 @@ import * as northwind from './common/northwind';
 import { QueryOperation, QueryOperationNodeType } from '../../lib/operation';
 import * as s from '../../lib/schema';
 
-describe('queries result schemas', () => {
-    test('no query', () => {
-        const query: QueryOperation = { operation: QueryOperationNodeType.dataSourceReference };
-        const ds = new DataSourceBase(new TestProvider(northwind.productSchema), query);
-        const expected: s.SchemaNodeCollection = {
-            kind: s.SchemaNodeKind.collection,
-            elementSchema: northwind.productSchema
-        };
-        expect(ds.queryResultSchema).toEqual(expected);
-    });
+describe('queries through datasource result schemas', () => {
     test('filter', () => {
-        const query: QueryOperation = { 
-            operation: QueryOperationNodeType.filter,
-            source: { 
-                operation: QueryOperationNodeType.dataSourceReference 
-            },
-            parameterName: 'product',
-            predicate: {
+        const query: QueryOperation = { operation: QueryOperationNodeType.dataSourceReference };
+        const ds: any = new DataSourceBase(new TestProvider(northwind.productSchema), query)
+            .filter('product', {
                 operation: QueryOperationNodeType.equal,
                 leftOperand: {
                     operation: QueryOperationNodeType.fieldReference,
@@ -35,9 +22,7 @@ describe('queries result schemas', () => {
                     operation: QueryOperationNodeType.literal,
                     value: 0
                 }
-            }
-        };
-        const ds = new DataSourceBase(new TestProvider(northwind.productSchema), query);
+            });
         const expected: s.SchemaNodeCollection = {
             kind: s.SchemaNodeKind.collection,
             elementSchema: northwind.productSchema
@@ -45,22 +30,16 @@ describe('queries result schemas', () => {
         expect(ds.queryResultSchema).toEqual(expected);
     });
     test('map to string', () => {
-        const query: QueryOperation = { 
-            operation: QueryOperationNodeType.map,
-            source: { 
-                operation: QueryOperationNodeType.dataSourceReference 
-            },
-            parameterName: 'employee',
-            projection: {
+        const query: QueryOperation = { operation: QueryOperationNodeType.dataSourceReference };
+        const ds: any = new DataSourceBase(new TestProvider(northwind.employeeSchema), query)
+            .map('employee', {
                 operation: QueryOperationNodeType.fieldReference,
                 element: {
                     operation: QueryOperationNodeType.parameter,
                     name: 'employee',
                 },
                 fieldName: 'firstName',
-            },
-        };
-        const ds = new DataSourceBase(new TestProvider(northwind.employeeSchema), query);
+            });
         const expected: s.SchemaNodeCollection = {
             kind: s.SchemaNodeKind.collection,
             elementSchema: {
@@ -71,13 +50,9 @@ describe('queries result schemas', () => {
         expect(ds.queryResultSchema).toEqual(expected);
     });
     test('map to element literal', () => {
-        const query: QueryOperation = { 
-            operation: QueryOperationNodeType.map,
-            source: { 
-                operation: QueryOperationNodeType.dataSourceReference 
-            },
-            parameterName: 'order',
-            projection: {
+        const query: QueryOperation = { operation: QueryOperationNodeType.dataSourceReference };
+        const ds: any = new DataSourceBase(new TestProvider(northwind.orderSchema), query)
+            .map('order', {
                 operation: QueryOperationNodeType.elementLiteral,
                 fields: [
                     {
@@ -114,9 +89,7 @@ describe('queries result schemas', () => {
                         },
                     },
                 ]
-            },
-        };
-        const ds = new DataSourceBase(new TestProvider(northwind.orderSchema), query);
+            });
         const expected: s.SchemaNodeCollection = {
             kind: s.SchemaNodeKind.collection,
             elementSchema: {
@@ -153,41 +126,31 @@ describe('queries result schemas', () => {
         expect(ds.queryResultSchema).toEqual(expected);
     });
     test('filter and map', () => {
-        const query: QueryOperation = {
-            operation: QueryOperationNodeType.map,
-            source: { 
-                operation: QueryOperationNodeType.filter,
-                source: { 
-                    operation: QueryOperationNodeType.dataSourceReference 
-                },
-                parameterName: 'product',
-                predicate: {
-                    operation: QueryOperationNodeType.equal,
-                    leftOperand: {
-                        operation: QueryOperationNodeType.fieldReference,
-                        element: {
-                            operation: QueryOperationNodeType.parameter,
-                            name: 'product',
-                        },
-                        fieldName: 'unitsInStock',
+        const query: QueryOperation = { operation: QueryOperationNodeType.dataSourceReference };
+        const ds: any = new DataSourceBase(new TestProvider(northwind.productSchema), query)
+            .filter('product', {
+                operation: QueryOperationNodeType.equal,
+                leftOperand: {
+                    operation: QueryOperationNodeType.fieldReference,
+                    element: {
+                        operation: QueryOperationNodeType.parameter,
+                        name: 'product',
                     },
-                    rightOperand: {
-                        operation: QueryOperationNodeType.literal,
-                        value: 0
-                    }
+                    fieldName: 'unitsInStock',
+                },
+                rightOperand: {
+                    operation: QueryOperationNodeType.literal,
+                    value: 0
                 }
-            },
-            parameterName: 'product',
-            projection: {
+            })
+            .map('product', {
                 operation: QueryOperationNodeType.fieldReference,
                 element: {
                     operation: QueryOperationNodeType.parameter,
                     name: 'product',
                 },
                 fieldName: 'productId',
-            }
-        }
-        const ds = new DataSourceBase(new TestProvider(northwind.productSchema), query);
+            });
         const expected: s.SchemaNodeCollection = {
             kind: s.SchemaNodeKind.collection,
             elementSchema: {
@@ -197,55 +160,47 @@ describe('queries result schemas', () => {
         expect(ds.queryResultSchema).toEqual(expected);
     });
     test('map and filter', () => {
-        const query: QueryOperation = { 
-            operation: QueryOperationNodeType.filter,
-            source: { 
-                operation: QueryOperationNodeType.map,
-                source: { 
-                    operation: QueryOperationNodeType.dataSourceReference 
-                },
-                parameterName: 'order',
-                projection: {
-                    operation: QueryOperationNodeType.elementLiteral,
-                    fields: [
-                        {
-                            name: 'id',
-                            value: {
-                                operation: QueryOperationNodeType.fieldReference,
-                                element: {
-                                    operation: QueryOperationNodeType.parameter,
-                                    name: 'order',
-                                },
-                                fieldName: 'orderId',
+        const query: QueryOperation = { operation: QueryOperationNodeType.dataSourceReference };
+        const ds: any = new DataSourceBase(new TestProvider(northwind.orderSchema), query)
+            .map('order', {
+                operation: QueryOperationNodeType.elementLiteral,
+                fields: [
+                    {
+                        name: 'id',
+                        value: {
+                            operation: QueryOperationNodeType.fieldReference,
+                            element: {
+                                operation: QueryOperationNodeType.parameter,
+                                name: 'order',
                             },
+                            fieldName: 'orderId',
                         },
-                        {
-                            name: 'customer',
-                            value: {
-                                operation: QueryOperationNodeType.fieldReference,
-                                element: {
-                                    operation: QueryOperationNodeType.parameter,
-                                    name: 'order',
-                                },
-                                fieldName: 'customerId',
+                    },
+                    {
+                        name: 'customer',
+                        value: {
+                            operation: QueryOperationNodeType.fieldReference,
+                            element: {
+                                operation: QueryOperationNodeType.parameter,
+                                name: 'order',
                             },
+                            fieldName: 'customerId',
                         },
-                        {
-                            name: 'employee',
-                            value: {
-                                operation: QueryOperationNodeType.fieldReference,
-                                element: {
-                                    operation: QueryOperationNodeType.parameter,
-                                    name: 'order',
-                                },
-                                fieldName: 'employeeId',
+                    },
+                    {
+                        name: 'employee',
+                        value: {
+                            operation: QueryOperationNodeType.fieldReference,
+                            element: {
+                                operation: QueryOperationNodeType.parameter,
+                                name: 'order',
                             },
+                            fieldName: 'employeeId',
                         },
-                    ]
-                },
-            },
-            parameterName: 'order',
-            predicate: {
+                    },
+                ]
+            })
+            .filter('order', {
                 operation: QueryOperationNodeType.equal,
                 leftOperand: {
                     operation: QueryOperationNodeType.fieldReference,
@@ -259,9 +214,7 @@ describe('queries result schemas', () => {
                     operation: QueryOperationNodeType.literal,
                     value: 1
                 }
-            }
-        }
-        const ds = new DataSourceBase(new TestProvider(northwind.orderSchema), query);
+            });
         const expected: s.SchemaNodeCollection = {
             kind: s.SchemaNodeKind.collection,
             elementSchema: {
@@ -298,13 +251,9 @@ describe('queries result schemas', () => {
         expect(ds.queryResultSchema).toEqual(expected);
     });
     test('nested queries', () => {
-        const query: QueryOperation = { 
-            operation: QueryOperationNodeType.map,
-            source: {
-                operation: QueryOperationNodeType.dataSourceReference,
-            },
-            parameterName: 'order',
-            projection: {
+        const query: QueryOperation = { operation: QueryOperationNodeType.dataSourceReference };
+        const ds: any = new DataSourceBase(new TestProvider(northwind.orderSchema), query)
+            .map('order', {
                 operation: QueryOperationNodeType.elementLiteral, 
                 fields: [
                     {
@@ -384,9 +333,7 @@ describe('queries result schemas', () => {
                         },
                     },
                 ]
-            },
-        };
-        const ds = new DataSourceBase(new TestProvider(northwind.orderSchema), query);
+            });
         const expected: s.SchemaNodeCollection = {
             kind: s.SchemaNodeKind.collection,
             elementSchema: {
