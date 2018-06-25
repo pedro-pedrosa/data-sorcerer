@@ -457,11 +457,8 @@ function schemaVisitBinary(scope: Map<string, s.SchemaNode>, queryOperation: Bin
 }
 function schemaVisitFilter(scope: Map<string, s.SchemaNode>, queryOperation: FilterOperation): s.SchemaNode {
     const source = schemaVisit(scope, queryOperation.source);
-    if (source.kind != s.SchemaNodeKind.collection) {
-        throw new Error();
-    }
     const newScope = new Map(scope);
-    newScope.set(queryOperation.parameterName, source.elementSchema);
+    newScope.set(queryOperation.parameterName, getSchemaNodeForCollectionSourceElement(source));
     if (schemaVisit(newScope, queryOperation.predicate).kind != s.SchemaNodeKind.boolean) {
         throw new Error();
     }
@@ -469,11 +466,8 @@ function schemaVisitFilter(scope: Map<string, s.SchemaNode>, queryOperation: Fil
 }
 function schemaVisitMap(scope: Map<string, s.SchemaNode>, queryOperation: MapOperation): s.SchemaNode {
     const source = schemaVisit(scope, queryOperation.source);
-    if (source.kind != s.SchemaNodeKind.collection) {
-        throw new Error();
-    }
     const newScope = new Map(scope);
-    newScope.set(queryOperation.parameterName, source.elementSchema);
+    newScope.set(queryOperation.parameterName, getSchemaNodeForCollectionSourceElement(source));
     return {
         kind: s.SchemaNodeKind.collection,
         elementSchema: schemaVisit(newScope, queryOperation.projection),
@@ -502,12 +496,31 @@ function getSchemaNodeForCollection(elementSchemas: s.SchemaNode[]): s.SchemaNod
         elementSchema: schema || { kind: s.SchemaNodeKind.complex, fields:[], key:[] }
     };
 }
-function getSchemaNodeForFieldReference(target: s.SchemaNode, fieldName: string): s.SchemaNode {
-    if (target.kind != s.SchemaNodeKind.complex) {
-        //TODO: handle other schema kinds like text.length
-        throw new Error();
+function getSchemaNodeForCollectionSourceElement(sourceSchema: s.SchemaNode): s.SchemaNode {
+    switch (sourceSchema.kind) {
+        case s.SchemaNodeKind.collection:
+            return sourceSchema.elementSchema;
+        case s.SchemaNodeKind.lookupContains:
+            return sourceSchema.lookupSchema;
+        case s.SchemaNodeKind.lookupHasMany:
+            return sourceSchema.lookupSchema;
     }
-    const field = target.fields.find(f => f.name == fieldName);
+    throw new Error();
+}
+function getSchemaNodeForFieldReference(target: s.SchemaNode, fieldName: string): s.SchemaNode {
+    switch (target.kind) {
+        case s.SchemaNodeKind.complex:
+            return getSchemaNodeForComplexFieldReference(target, fieldName);
+        case s.SchemaNodeKind.lookupBelongs:
+        return getSchemaNodeForLookupBelongsFieldReference(target, fieldName);
+    }
+    throw new Error();
+}
+function getSchemaNodeForLookupBelongsFieldReference(lookup: s.SchemaNodeLookupBelongs, fieldName: string): s.SchemaNode {
+    return getSchemaNodeForComplexFieldReference(lookup.lookupSchema, fieldName);
+}
+function getSchemaNodeForComplexFieldReference(complexElement: s.SchemaNodeComplex, fieldName: string): s.SchemaNode {
+    const field = complexElement.fields.find(f => f.name == fieldName);
     if (!field) {
         throw new Error();
     }
