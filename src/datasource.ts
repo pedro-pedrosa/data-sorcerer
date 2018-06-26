@@ -60,14 +60,17 @@ export class DataSourceBase<T = any> implements IDataSource<T> {
     map<K>(projection: (element: T) => K): IDataSource<K>;
     map<K>(parameterName: string, projection: op.QueryOperation): IDataSource<K>;
     map<K>(projectionOrParameterName: expr.Expression<(element: T) => K> | ((element: T) => K) | string, projectionOperation?: op.QueryOperation): IDataSource<T> {
-        const { parameterName, body: projection } = this.extractLambdaProperties(projectionOrParameterName, projectionOperation);
+        const { parameterName, body: projection, bodySchema: elementSchema } = this.extractLambdaProperties(projectionOrParameterName, projectionOperation);
         return new DataSourceBase<T>(this.provider, 
         {
             operation: op.QueryOperationNodeType.map,
             source: this.query,
             parameterName,
             projection,
-        }, this.queryResultSchema);
+        }, {
+            kind: SchemaNodeKind.collection,
+            elementSchema
+        });
     }
     toArray(): Promise<T[]> {
         return this.provider.execute(this.query);
@@ -76,7 +79,7 @@ export class DataSourceBase<T = any> implements IDataSource<T> {
     private extractLambdaProperties<K extends {}>(bodyOrParameterName: expr.Expression<K> | K | string, bodyOperation?: op.QueryOperation): { parameterName: string, body: op.QueryOperation, bodySchema: SchemaNode } {
         if (typeof bodyOrParameterName == 'string') {
             const scope = this.createScope();
-            scope.set(bodyOrParameterName, this.queryResultSchema);
+            scope.set(bodyOrParameterName, this.queryResultSchema.elementSchema);
             return {
                 parameterName: bodyOrParameterName,
                 body: bodyOperation!,
@@ -85,7 +88,7 @@ export class DataSourceBase<T = any> implements IDataSource<T> {
         }
         else if (expr.isLambdaExpression<K>(bodyOrParameterName) && bodyOrParameterName.root.parameters.length == 1) {
             const scope = this.createScope();
-            scope.set(bodyOrParameterName.root.parameters[0].name, this.queryResultSchema);
+            scope.set(bodyOrParameterName.root.parameters[0].name, this.queryResultSchema.elementSchema);
             const convertResult = op.convertExpressionToQueryOperation(scope, bodyOrParameterName.root.body);
             return {
                 parameterName: bodyOrParameterName.root.parameters[0].name,
