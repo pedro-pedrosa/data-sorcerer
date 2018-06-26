@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/pedro-pedrosa/data-sorcerer#readme",
   "dependencies": {
-    "ts-expressions": "0.0.7"
+    "ts-expressions": "0.0.8"
   },
   "devDependencies": {
     "@types/jest": "^23.1.1",
