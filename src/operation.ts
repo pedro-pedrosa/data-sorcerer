@@ -301,6 +301,36 @@ function convertBinary(scope: Map<string, s.SchemaNode>, expression: expr.Binary
         case expr.BinaryOperator.notStrictEquals:
             operationKind = QueryOperationNodeType.notEqual;
             break;
+        case expr.BinaryOperator.and:
+            operationKind = QueryOperationNodeType.and;
+            break;
+        case expr.BinaryOperator.or:
+            operationKind = QueryOperationNodeType.or;
+            break;
+        case expr.BinaryOperator.greaterThan:
+            operationKind = QueryOperationNodeType.greater;
+            break;
+        case expr.BinaryOperator.greaterThanOrEquals:
+            operationKind = QueryOperationNodeType.greaterOrEqual;
+            break;
+        case expr.BinaryOperator.lessThan:
+            operationKind = QueryOperationNodeType.less;
+            break;
+        case expr.BinaryOperator.lessThanOrEquals:
+            operationKind = QueryOperationNodeType.lessOrEqual;
+            break;
+        case expr.BinaryOperator.plus:
+            operationKind = QueryOperationNodeType.add;
+            break;
+        case expr.BinaryOperator.minus:
+            operationKind = QueryOperationNodeType.subtract;
+            break;
+        case expr.BinaryOperator.multiply:
+            operationKind = QueryOperationNodeType.multiply;
+            break;
+        case expr.BinaryOperator.divide:
+            operationKind = QueryOperationNodeType.divide;
+            break;
         default:
             throw new Error();
     }
