@@ -320,16 +320,21 @@ function convertCall(scope: Map<string, s.SchemaNode>, expression: expr.CallExpr
     const calleeTargetResult = convertVisit(scope, expression.callee.expression);
     switch (calleeTargetResult.schema.kind) {
         case s.SchemaNodeKind.collection:
-            switch (expression.callee.name) {
-                case 'filter':
-                    return convertCollectionFilterCall(scope, calleeTargetResult.operation, calleeTargetResult.schema.elementSchema, expression.arguments);
-                case 'map':
-                    return convertCollectionMapCall(scope, calleeTargetResult.operation, calleeTargetResult.schema.elementSchema, expression.arguments);
-                default:
-                    throw new Error();
-            }
+        case s.SchemaNodeKind.lookupContains:
+        case s.SchemaNodeKind.lookupHasMany:
+            return getConvertNestedQueryCallFunction(expression.callee.name)(scope, calleeTargetResult.operation, calleeTargetResult.schema.kind == s.SchemaNodeKind.collection ? calleeTargetResult.schema.elementSchema : calleeTargetResult.schema.lookupSchema, expression.arguments);
         default:
-        throw new Error();
+            throw new Error();
+    }
+}
+function getConvertNestedQueryCallFunction(methodName: string) {
+    switch (methodName) {
+        case 'filter':
+            return convertCollectionFilterCall;
+        case 'map':
+            return convertCollectionMapCall;
+        default:
+            throw new Error();
     }
 }
 function convertCollectionFilterCall(scope: Map<string, s.SchemaNode>, source: QueryOperation, sourceElementSchema: s.SchemaNode, args: expr.ExpressionNode[]): ConvertExpressionToQueryOperationResult {
