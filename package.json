@@ -4,7 +4,8 @@
   "description": "Query any data source using a common, fluent API",
   "main": "lib/index",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "compile-tests": "cd tests&&node ..\\node_modules\\ttypescript\\lib\\tsc.js"
   },
   "repository": {
     "type": "git",
@@ -21,7 +22,7 @@
   },
   "homepage": "https://github.com/pedro-pedrosa/data-sorcerer#readme",
   "dependencies": {
-    "ts-expressions": "0.0.4"
+    "ts-expressions": "0.0.7"
   },
   "devDependencies": {
     "@types/jest": "^23.1.1",
