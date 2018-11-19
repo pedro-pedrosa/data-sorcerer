@@ -25,9 +25,9 @@
     "ts-expressions": "0.0.8"
   },
   "devDependencies": {
-    "@types/jest": "^23.1.1",
-    "jest": "^23.1.0",
-    "ttypescript": "^1.4.6"
+    "@types/jest": "^23.3.9",
+    "jest": "^23.6.0",
+    "ttypescript": "^1.5.5"
   },
   "jest": {
     "testRegex": "(?:/tests/lib/[^\\./]*)\\.(?:jsx?)$"
